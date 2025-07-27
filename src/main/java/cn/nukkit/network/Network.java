@@ -1,10 +1,12 @@
 package cn.nukkit.network;
 
+import cn.nukkit.GameVersion;
 import cn.nukkit.Nukkit;
 import cn.nukkit.Player;
 import cn.nukkit.Server;
 import cn.nukkit.network.process.DataPacketManager;
 import cn.nukkit.network.protocol.*;
+import cn.nukkit.network.protocol.netease.ConfirmSkinPacket;
 import cn.nukkit.network.protocol.v113.*;
 import cn.nukkit.utils.BinaryStream;
 import cn.nukkit.utils.Utils;
@@ -240,6 +242,10 @@ public class Network {
 
                 ByteArrayInputStream bais = new ByteArrayInputStream(buf);
 
+                if (raknetProtocol == 8 && Server.getInstance().netEaseMode) {
+                    raknetProtocol = 9;
+                }
+
                 int packetId;
                 switch (raknetProtocol) {
                     case 7:
@@ -260,7 +266,13 @@ public class Network {
                 DataPacket pk = this.getPacket(packetId, player == null ? ProtocolInfo.CURRENT_PROTOCOL : player.protocol);
 
                 if (pk != null) {
-                    pk.protocol = player == null ? Integer.MAX_VALUE : player.protocol;
+                    if (player != null) {
+                        pk.protocol = player.protocol;
+                        pk.gameVersion = player.getGameVersion();
+                    } else {
+                        pk.protocol = Integer.MAX_VALUE;
+                        pk.gameVersion = GameVersion.getLastVersion();
+                    }
                     pk.setBuffer(buf, buf.length - bais.available());
                     try {
                         if (raknetProtocol > 8) {
@@ -601,6 +613,9 @@ public class Network {
                 .registerPacket(ProtocolInfo.MOVEMENT_EFFECT_PACKET, MovementEffectPacket.class)
                 .registerPacket(ProtocolInfo.SET_MOVEMENT_AUTHORITY_PACKET, SetMovementAuthorityPacket.class)
                 .registerPacket(ProtocolInfo.CAMERA_AIM_ASSIST_PRESETS_PACKET, CameraAimAssistPresetsPacket.class)
+
+                // NetEase
+                .registerPacket(ProtocolInfo.PACKET_CONFIRM_SKIN, ConfirmSkinPacket.class)
                 .build();
 
         this.packetPoolCurrent = this.packetPool137.toBuilder()

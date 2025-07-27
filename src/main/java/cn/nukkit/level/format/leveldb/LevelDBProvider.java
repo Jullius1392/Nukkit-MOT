@@ -1,5 +1,6 @@
 package cn.nukkit.level.format.leveldb;
 
+import cn.nukkit.GameVersion;
 import cn.nukkit.Server;
 import cn.nukkit.block.Block;
 import cn.nukkit.level.GameRules;
@@ -23,11 +24,11 @@ import cn.nukkit.utils.*;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.buffer.*;
-import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
 import lombok.extern.log4j.Log4j2;
 import net.daporkchop.ldbjni.DBProvider;
 import net.daporkchop.ldbjni.LevelDB;
@@ -73,6 +74,8 @@ public class LevelDBProvider implements LevelProvider {
     protected volatile boolean closed;
     protected final Lock gcLock;
     private final ExecutorService executor;
+
+    private Task autoCompactionTask;
 
     public LevelDBProvider(Level level, String path) {
         this.level = level;
@@ -144,7 +147,7 @@ public class LevelDBProvider implements LevelProvider {
 
         if (level.isAutoCompaction()) {
             int delay = level.getServer().getAutoCompactionTicks();
-            level.getServer().getScheduler().scheduleDelayedRepeatingTask(InternalPlugin.INSTANCE, new Task() {
+            this.autoCompactionTask = new Task() {
                 @Override
                 public void onRun(int currentTick) {
                     if (closed || !level.isAutoCompaction()) {
@@ -153,7 +156,8 @@ public class LevelDBProvider implements LevelProvider {
                     }
                     CompletableFuture.runAsync(new AutoCompaction(), LevelDBProvider.this.executor);
                 }
-            }, delay + ThreadLocalRandom.current().nextInt(delay), delay);
+            };
+            level.getServer().getScheduler().scheduleDelayedRepeatingTask(InternalPlugin.INSTANCE, autoCompactionTask, delay + ThreadLocalRandom.current().nextInt(delay), delay);
         }
     }
 
@@ -311,7 +315,7 @@ public class LevelDBProvider implements LevelProvider {
     }
 
     @Override
-    public void requestChunkTask(IntSet protocols, int chunkX, int chunkZ) {
+    public void requestChunkTask(ObjectSet<GameVersion> protocols, int chunkX, int chunkZ) {
         LevelDBChunk chunk = (LevelDBChunk) this.getChunk(chunkX, chunkZ, false);
         if (chunk == null) {
             throw new ChunkException("Invalid Chunk Set");
@@ -323,7 +327,7 @@ public class LevelDBProvider implements LevelProvider {
             final BaseChunk chunkClone = chunk.cloneForChunkSending();
             this.level.getAsyncChuckExecutor().execute(() -> {
                 NetworkChunkSerializer.serialize(protocols, chunkClone, networkChunkSerializerCallback -> {
-                    getLevel().asyncChunkRequestCallback(networkChunkSerializerCallback.getProtocolId(),
+                    getLevel().asyncChunkRequestCallback(networkChunkSerializerCallback.getGameVersion(),
                             timestamp,
                             chunkX,
                             chunkZ,
@@ -334,7 +338,7 @@ public class LevelDBProvider implements LevelProvider {
             });
         }else {
             NetworkChunkSerializer.serialize(protocols, chunk, networkChunkSerializerCallback -> {
-                this.getLevel().chunkRequestCallback(networkChunkSerializerCallback.getProtocolId(),
+                this.getLevel().chunkRequestCallback(networkChunkSerializerCallback.getGameVersion(),
                         timestamp,
                         chunkX,
                         chunkZ,
@@ -723,6 +727,11 @@ public class LevelDBProvider implements LevelProvider {
         }
 
         try {
+            if (this.autoCompactionTask != null) {
+                this.autoCompactionTask.cancel();
+                this.autoCompactionTask = null;
+            }
+
             gcLock.lock();
 
             this.unloadChunksUnsafe(true);
@@ -1075,7 +1084,9 @@ public class LevelDBProvider implements LevelProvider {
 
             log.debug("Running AutoCompaction... ({})", path);
             try {
-                gcLock.lock();
+                if (!gcLock.tryLock(500, TimeUnit.MILLISECONDS)) {
+                    return;
+                }
 
                 if (!canRun()) {
                     return;
@@ -1100,6 +1111,8 @@ public class LevelDBProvider implements LevelProvider {
                     return next;
                 }, true);
                 log.debug("{} chunks have been compressed ({})", count, path);
+            } catch (InterruptedException e) {
+                log.debug("AutoCompaction interrupted", e);
             } finally {
                 gcLock.unlock();
             }

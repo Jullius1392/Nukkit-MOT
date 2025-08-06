@@ -559,6 +559,9 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
 
     public void setAllowFlight(boolean value) {
         this.adventureSettings.set(Type.ALLOW_FLIGHT, value);
+        if (!value && (this.gamemode == SURVIVAL || this.gamemode == ADVENTURE)) {
+            this.adventureSettings.set(Type.FLYING, false);
+        }
         this.adventureSettings.update();
     }
 
@@ -7505,11 +7508,15 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
             experiments.add(new ExperimentData("experimental_custom_ui", true));
             experiments.add(new ExperimentData("upcoming_creator_features", true));
             experiments.add(new ExperimentData("experimental_molang_features", true));
-            if (protocol >= ProtocolInfo.v1_20_0_23) {
+            if (this.protocol >= ProtocolInfo.v1_20_0_23) {
                 experiments.add(new ExperimentData("cameras", true));
-                if (protocol >= ProtocolInfo.v1_20_10_21 && protocol < ProtocolInfo.v1_20_30_24) {
+                if (this.protocol >= ProtocolInfo.v1_20_10_21 && this.protocol < ProtocolInfo.v1_20_30_24) {
                     experiments.add(new ExperimentData("short_sneaking", true));
                 }
+            }
+            if (this.protocol >= ProtocolInfo.v1_21_80 && this.protocol < ProtocolInfo.v1_21_90) {
+                experiments.add(new ExperimentData("experimental_graphics", true));
+                experiments.add(new ExperimentData("locator_bar", true));
             }
         }
         return experiments;

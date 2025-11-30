@@ -11,6 +11,7 @@ import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.utils.ChunkException;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Constructor;
 
@@ -108,13 +109,8 @@ public abstract class BlockEntity extends Position {
     public static BlockEntity createBlockEntity(String type, FullChunk chunk, CompoundTag nbt, Object... args) {
         BlockEntity blockEntity = null;
 
-        if (knownBlockEntities.containsKey(type)) {
-            Class<? extends BlockEntity> clazz = knownBlockEntities.get(type);
-
-            if (clazz == null) {
-                return null;
-            }
-
+        Class<? extends BlockEntity> clazz = knownBlockEntities.get(type);
+        if (clazz != null) {
             for (Constructor<?> constructor : clazz.getConstructors()) {
                 if (blockEntity != null) {
                     break;
@@ -170,6 +166,7 @@ public abstract class BlockEntity extends Position {
         this.namedTag.putBoolean("isMovable", this.movable);
     }
 
+    @Nullable
     public CompoundTag getCleanedNBT() {
         this.saveNBT();
         CompoundTag tag = this.namedTag.clone();

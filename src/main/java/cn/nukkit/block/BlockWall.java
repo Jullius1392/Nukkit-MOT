@@ -8,6 +8,7 @@ import cn.nukkit.block.custom.properties.RegisteredBlockProperty;
 import cn.nukkit.block.properties.BlockPropertiesHelper;
 import cn.nukkit.block.properties.VanillaProperties;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemBlock;
 import cn.nukkit.item.ItemTool;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.format.leveldb.LevelDBConstants;
@@ -514,6 +515,11 @@ public class BlockWall extends BlockTransparentMeta implements BlockPropertiesHe
                 .build();
     }
 
+    @Override
+    public Item toItem() {
+        return new ItemBlock(Block.get(this.getId(), this.getWallType().ordinal()), this.getWallType().ordinal(), 1);
+    }
+
     public static BlockFace.Axis calculateAxis(Vector3 base, Vector3 side) {
         Vector3 vector = side.subtract(base);
         return vector.x != 0 ? BlockFace.Axis.X : vector.z != 0 ? BlockFace.Axis.Z : BlockFace.Axis.Y;
@@ -537,8 +543,8 @@ public class BlockWall extends BlockTransparentMeta implements BlockPropertiesHe
         BRICK(RED_BLOCK_COLOR),
         STONE_BRICK,
         MOSSY_STONE_BRICK,
-        END_BRICK(SAND_BLOCK_COLOR),
         NETHER_BRICK(NETHERRACK_BLOCK_COLOR),
+        END_BRICK(SAND_BLOCK_COLOR),
         PRISMARINE(CYAN_BLOCK_COLOR),
         RED_SANDSTONE(ORANGE_BLOCK_COLOR),
         RED_NETHER_BRICK(NETHERRACK_BLOCK_COLOR);

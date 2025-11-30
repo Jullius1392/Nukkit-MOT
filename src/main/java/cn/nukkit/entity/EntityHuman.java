@@ -12,13 +12,13 @@ import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.nbt.tag.StringTag;
 import cn.nukkit.network.protocol.AddPlayerPacket;
+import cn.nukkit.network.protocol.PlayerListPacket;
 import cn.nukkit.network.protocol.ProtocolInfo;
 import cn.nukkit.network.protocol.SetEntityLinkPacket;
 import cn.nukkit.utils.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -34,10 +34,13 @@ public class EntityHuman extends EntityHumanType {
     public static final int DATA_PLAYER_FLAGS = 26;
     public static final int DATA_PLAYER_BUTTON_TEXT = 40;
 
-    protected static PlayerInventory EMPTY_INVENTORY = new PlayerInventory(null);
-
     protected UUID uuid;
     protected byte[] rawUUID;
+    /**
+     * The player's Minecraft PlayFab ID
+     * @since v818
+     */
+    protected String minecraftId;
 
     protected Skin skin;
 
@@ -217,7 +220,7 @@ public class EntityHuman extends EntityHumanType {
                 this.setSkin(newSkin);
             }
 
-            this.uuid = Utils.dataToUUID(String.valueOf(this.getId()).getBytes(StandardCharsets.UTF_8), this.skin
+            this.uuid = Utils.dataToUUID(String.valueOf(this.getId()).getBytes(StandardCharsets.UTF_8), this.getSkin()
                     .getSkinData().data, this.getNameTag().getBytes(StandardCharsets.UTF_8));
         } else {
             // HACK: Fix gravity on 1.2.11 and lower
@@ -238,18 +241,18 @@ public class EntityHuman extends EntityHumanType {
     public void saveNBT() {
         super.saveNBT();
 
-        if (skin != null) {
+        if (this.getSkin() != null) {
             CompoundTag skinTag = new CompoundTag()
                     .putByteArray("Data", this.getSkin().getSkinData().data)
                     .putInt("SkinImageWidth", this.getSkin().getSkinData().width)
                     .putInt("SkinImageHeight", this.getSkin().getSkinData().height)
-                    .putString("ModelId", this.skin.getSkinId())
+                    .putString("ModelId", this.getSkin().getSkinId())
                     .putString("CapeId", this.getSkin().getCapeId())
                     .putByteArray("CapeData", this.getSkin().getCapeData().data)
                     .putInt("CapeImageWidth", this.getSkin().getCapeData().width)
                     .putInt("CapeImageHeight", this.getSkin().getCapeData().height)
                     .putByteArray("SkinResourcePatch", this.getSkin().getSkinResourcePatch().getBytes(StandardCharsets.UTF_8))
-                    .putByteArray("GeometryData", this.skin.getGeometryData().getBytes(StandardCharsets.UTF_8))
+                    .putByteArray("GeometryData", this.getSkin().getGeometryData().getBytes(StandardCharsets.UTF_8))
                     .putByteArray("SkinAnimationData", this.getSkin().getAnimationData().getBytes(StandardCharsets.UTF_8))
                     .putBoolean("PremiumSkin", this.getSkin().isPremium())
                     .putBoolean("PersonaSkin", this.getSkin().isPersona())
@@ -318,17 +321,19 @@ public class EntityHuman extends EntityHumanType {
         if (this != player && !this.hasSpawned.containsKey(player.getLoaderId())) {
             this.hasSpawned.put(player.getLoaderId(), player);
 
-            if (!this.skin.isValid()) {
+            if (!this.getSkin().isValid()) {
                 throw new IllegalStateException(this.getClass().getSimpleName() + " must have a valid skin set");
             }
 
             if (this.isPlayer) {
-                this.server.updatePlayerListData(this.uuid, this.getId(), ((Player) this).getDisplayName(), this.skin, ((Player) this).getLoginChainData().getXUID(), new Player[]{player});
+                this.server.updatePlayerListData(
+                        new PlayerListPacket.Entry(this.uuid, this.getId(), ((Player) this).getDisplayName(), this.getSkin(), ((Player) this).getLoginChainData().getXUID(), ((Player) this).getLocatorBarColor()),
+                        new Player[]{player});
             } else {
-                this.server.updatePlayerListData(this.uuid, this.getId(), this.getName(), this.skin, new Player[]{player});
+                this.server.updatePlayerListData(this.uuid, this.getId(), this.getName(), this.getSkin(), new Player[]{player});
             }
 
-            PlayerInventory playerInventory = Objects.requireNonNullElse(this.inventory, EMPTY_INVENTORY);
+            PlayerInventory playerInventory = this.getInventory();
 
             AddPlayerPacket pk = new AddPlayerPacket();
             pk.uuid = this.uuid;
@@ -343,14 +348,16 @@ public class EntityHuman extends EntityHumanType {
             pk.speedZ = (float) this.motionZ;
             pk.yaw = (float) this.yaw;
             pk.pitch = (float) this.pitch;
-            pk.item = playerInventory.getItemInHand();
+            pk.item = playerInventory != null ? playerInventory.getItemInHand() : Item.AIR_ITEM;
             pk.metadata = this.dataProperties.clone();
             player.dataPacket(pk);
 
-            if (this.isPlayer) {
-                playerInventory.sendArmorContents(player);
-            } else {
-                playerInventory.sendArmorContentsIfNotAr(player);
+            if (playerInventory != null) {
+                if (this.isPlayer) {
+                    playerInventory.sendArmorContents(player);
+                } else {
+                    playerInventory.sendArmorContentsIfNotAr(player);
+                }
             }
             this.offhandInventory.sendContents(player);
 

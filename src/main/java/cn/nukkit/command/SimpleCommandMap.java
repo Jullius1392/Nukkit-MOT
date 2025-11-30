@@ -154,7 +154,9 @@ public class SimpleCommandMap implements CommandMap {
         for (String name : commands) {
             Command command = this.getCommand(name);
             if (command != null) {
-                command.unregister(this);
+                if (command.unregister(this)) {
+                    removeCommand(command);
+                }
             }
         }
     }
@@ -162,8 +164,15 @@ public class SimpleCommandMap implements CommandMap {
     @Override
     public void unregister(Command... commands) {
         for (Command command : commands) {
-            command.unregister(this);
+            if (command.unregister(this)) {
+                removeCommand(command);
+            }
         }
+    }
+
+    private boolean removeCommand(Command command) {
+        return knownCommands.entrySet()
+                .removeIf(entry -> entry.getValue().equals(command));
     }
 
     @Override
@@ -208,8 +217,8 @@ public class SimpleCommandMap implements CommandMap {
         this.knownCommands.put(fallbackPrefix + ':' + label, command);
 
         //if you're registering a command alias that is already registered, then return false
-        boolean alreadyRegistered = this.knownCommands.containsKey(label);
         Command existingCommand = this.knownCommands.get(label);
+        boolean alreadyRegistered = existingCommand != null;
         boolean existingCommandIsNotVanilla = alreadyRegistered && !(existingCommand instanceof VanillaCommand);
         //basically, if we're an alias and it's already registered, or we're a vanilla command, then we can't override it
         if ((command instanceof VanillaCommand || isAlias) && alreadyRegistered && existingCommandIsNotVanilla) {

@@ -5,12 +5,14 @@ import cn.nukkit.event.block.DoorToggleEvent;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemTool;
 import cn.nukkit.level.Level;
+import cn.nukkit.level.Sound;
 import cn.nukkit.level.sound.DoorSound;
 import cn.nukkit.math.AxisAlignedBB;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.math.SimpleAxisAlignedBB;
 import cn.nukkit.utils.BlockColor;
 import cn.nukkit.utils.Faceable;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Created on 2015/11/23 by xtypr.
@@ -79,7 +81,7 @@ public class BlockFenceGate extends BlockTransparentMeta implements Faceable {
     }
 
     @Override
-    public boolean place(Item item, Block block, Block target, BlockFace face, double fx, double fy, double fz, Player player) {
+    public boolean place(@NotNull Item item, @NotNull Block block, @NotNull Block target, @NotNull BlockFace face, double fx, double fy, double fz, Player player) {
         this.setDamage(player != null ? player.getDirection().getHorizontalIndex() : 0);
         this.getLevel().setBlock(block, this, true, true);
 
@@ -153,8 +155,12 @@ public class BlockFenceGate extends BlockTransparentMeta implements Faceable {
         }
 
         this.setDamage(direction | ((~this.getDamage()) & OPEN_BIT));
-        this.level.addSound(new DoorSound(this));
-        this.level.setBlock(this, this, false, false);
+        this.level.setBlock(this, this, false, true);
+        if (this.isOpen()) {
+            this.level.addSound(this, Sound.RANDOM_DOOR_OPEN);
+        } else {
+            this.level.addSound(this, Sound.RANDOM_DOOR_CLOSE);
+        }
         return true;
     }
 

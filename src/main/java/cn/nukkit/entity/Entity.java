@@ -2,16 +2,14 @@ package cn.nukkit.entity;
 
 import cn.nukkit.Player;
 import cn.nukkit.Server;
-import cn.nukkit.block.Block;
-import cn.nukkit.block.BlockFire;
-import cn.nukkit.block.BlockID;
-import cn.nukkit.block.BlockWater;
+import cn.nukkit.block.*;
 import cn.nukkit.blockentity.BlockEntityPistonArm;
 import cn.nukkit.entity.custom.CustomEntity;
 import cn.nukkit.entity.custom.EntityDefinition;
 import cn.nukkit.entity.custom.EntityManager;
 import cn.nukkit.entity.data.*;
 import cn.nukkit.entity.data.property.*;
+import cn.nukkit.entity.item.EntityMinecartEmpty;
 import cn.nukkit.entity.item.EntityVehicle;
 import cn.nukkit.entity.mob.EntityCreeper;
 import cn.nukkit.entity.mob.EntityWolf;
@@ -83,7 +81,9 @@ public abstract class Entity extends Location implements Metadatable {
     public static final int DATA_FLAGS = 0;
     public static final int DATA_HEALTH = 1; //int (minecart/boat)
     public static final int DATA_VARIANT = 2; //int
-    public static final int DATA_COLOR = 3, DATA_COLOUR = DATA_COLOR; //byte
+    public static final int DATA_COLOR = 3; //byte
+    @Deprecated
+    public static final int DATA_COLOUR = DATA_COLOR;
     public static final int DATA_NAMETAG = 4; //string
     public static final int DATA_OWNER_EID = 5; //long
     public static final int DATA_TARGET_EID = 6; //long
@@ -254,7 +254,8 @@ public abstract class Entity extends Location implements Metadatable {
     public static final int DATA_FLAG_CRITICAL = 13;
     public static final int DATA_FLAG_CAN_SHOW_NAMETAG = 14;
     public static final int DATA_FLAG_ALWAYS_SHOW_NAMETAG = 15;
-    public static final int DATA_FLAG_IMMOBILE = 16, DATA_FLAG_NO_AI = DATA_FLAG_IMMOBILE;
+    public static final int DATA_FLAG_IMMOBILE = 16;
+    public static final int DATA_FLAG_NO_AI = DATA_FLAG_IMMOBILE;
     public static final int DATA_FLAG_SILENT = 17;
     public static final int DATA_FLAG_WALLCLIMBING = 18;
     public static final int DATA_FLAG_CAN_CLIMB = 19;
@@ -482,6 +483,8 @@ public abstract class Entity extends Location implements Metadatable {
     protected boolean noFallDamage;
     public float fallDistance = 0;
     public int lastUpdate;
+    public int inLavaTicks = 0;
+    public int inFireTicks = 0;
     public int fireTicks = 0;
     public int inPortalTicks = 0;
     public int freezingTicks = 0;//0 - 140
@@ -654,7 +657,23 @@ public abstract class Entity extends Location implements Metadatable {
 
         this.temporalVector = new Vector3();
 
-        this.id = entityCount++;
+        if (Server.getInstance().netEaseMode) {
+            // 2^31 - 2^33 给网易uid预留使用
+            if (entityCount >= Integer.MAX_VALUE && entityCount < Integer.MAX_VALUE * 4L) {
+                entityCount = Integer.MAX_VALUE * 4L;
+            }
+
+            if (this instanceof Player player) {
+                long uid = player.getLoginChainData().getNetEaseUID();
+                this.id = uid > Integer.MAX_VALUE ? uid : entityCount;
+            } else {
+                this.id = entityCount;
+            }
+            entityCount++;
+        } else {
+            this.id = entityCount++;
+        }
+
         this.justCreated = true;
         this.namedTag = nbt;
 
@@ -667,14 +686,18 @@ public abstract class Entity extends Location implements Metadatable {
         ListTag<DoubleTag> posList = this.namedTag.getList("Pos", DoubleTag.class);
         ListTag<FloatTag> rotationList = this.namedTag.getList("Rotation", FloatTag.class);
         ListTag<DoubleTag> motionList = this.namedTag.getList("Motion", DoubleTag.class);
+        float correctedYaw = rotationList.get(0).data;
+        if (!(correctedYaw >= -360 && correctedYaw <= 360)) correctedYaw = 0;
+        float correctedPitch = rotationList.get(1).data;
+        if (!(correctedPitch >= -360 && correctedPitch <= 360)) correctedPitch = 0;
         this.setPositionAndRotation(
                 this.temporalVector.setComponents(
                         posList.get(0).data,
                         posList.get(1).data,
                         posList.get(2).data
                 ),
-                rotationList.get(0).data,
-                rotationList.get(1).data
+                correctedYaw,
+                correctedPitch
         );
 
         this.setMotion(this.temporalVector.setComponents(
@@ -966,9 +989,8 @@ public abstract class Entity extends Location implements Metadatable {
      * @param cause the cause of the removal
      */
     public void removeEffect(int effectId, EntityPotionEffectEvent.Cause cause) {
-        if (this.effects.containsKey(effectId)) {
-            Effect effect = this.effects.get(effectId);
-
+        Effect effect = this.effects.get(effectId);
+        if (effect != null) {
             if (cause != null) {
                 EntityPotionEffectEvent event = new EntityPotionEffectEvent(this, effect, null, EntityPotionEffectEvent.Action.REMOVED, cause);
                 event.call();
@@ -1518,6 +1540,17 @@ public abstract class Entity extends Location implements Metadatable {
         }
     }
 
+    /**
+     * Check if player's hit should be critical
+     * @param player player
+     * @return can make a critical hit
+     */
+    private static boolean canCriticalHit(Player player) {
+        if (player.isOnGround() || player.riding != null || player.speed == null || player.speed.y <= 0 || player.hasEffect(Effect.BLINDNESS)) return false;
+        int b = player.getLevel().getBlockIdAt(player.chunk, player.getFloorX(), player.getFloorY(), player.getFloorZ());
+        return b != Block.LADDER && b != Block.VINES && !Block.isWater(b);
+    }
+
     public boolean attack(EntityDamageEvent source) {
         if (hasEffect(Effect.FIRE_RESISTANCE)
                 && (source.getCause() == DamageCause.FIRE
@@ -1526,9 +1559,26 @@ public abstract class Entity extends Location implements Metadatable {
             return false;
         }
 
+        if (this instanceof EntityLiving && source instanceof EntityDamageByEntityEvent && !(source instanceof EntityDamageByChildEntityEvent)) {
+            Entity damager = ((EntityDamageByEntityEvent) source).getDamager();
+            if (damager instanceof Player && canCriticalHit((Player) damager)) {
+                source.setDamage(source.getFinalDamage() * 0.5f, EntityDamageEvent.DamageModifier.CRITICAL);
+            }
+        }
+
         server.getPluginManager().callEvent(source);
         if (source.isCancelled()) {
             return false;
+        }
+
+        if (source.isApplicable(EntityDamageEvent.DamageModifier.CRITICAL)) {
+            AnimatePacket animate = new AnimatePacket();
+            animate.action = AnimatePacket.Action.CRITICAL_HIT;
+            animate.eid = this.getId();
+            animate.data = 55f;
+
+            this.getLevel().addChunkPacket(this.getChunkX(), this.getChunkZ(), animate);
+            this.getLevel().addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_ATTACK_STRONG);
         }
 
         if (source instanceof EntityDamageByEntityEvent damageByEntityEvent) {
@@ -1878,8 +1928,10 @@ public abstract class Entity extends Location implements Metadatable {
                     this.fireTicks = 0;
                 }
             } else {
-                if (!this.hasEffect(Effect.FIRE_RESISTANCE) && ((this.fireTicks % 20) == 0 || tickDiff > 20)) {
-                    this.attack(new EntityDamageEvent(this, DamageCause.FIRE_TICK, 1));
+                if (!this.hasEffect(Effect.FIRE_RESISTANCE) && ((this.fireTicks % 20) == 0 || tickDiff > 20) && this.level.getGameRules().getBoolean(GameRule.FIRE_DAMAGE)) {
+                    if (!isInsideOfLava() && !isInsideOfFire()){
+                        this.attack(new EntityDamageEvent(this, DamageCause.FIRE_TICK, 1));
+                    }
                 }
                 this.fireTicks -= tickDiff;
             }
@@ -1911,10 +1963,37 @@ public abstract class Entity extends Location implements Metadatable {
             }
         }
 
+        //  每10tick检查一次实体是否可以被甜浆果丛伤害
+        //  如果是玩家则在Player类的handleMovement方法中处理
+        if (ticksLived % 10 == 0 && !this.isPlayer) {
+            if (this.canBeDamagedBySweetBerryBush()) {
+                this.attack(new EntityDamageEvent(this, DamageCause.CONTACT, 1));
+            }
+        }
+
         this.age += tickDiff;
         this.ticksLived += tickDiff;
 
         return hasUpdate;
+    }
+
+    /**
+     * @return 实体是否可以被甜浆果丛伤害
+     */
+    protected boolean canBeDamagedBySweetBerryBush() {
+        if (this.isPlayer || this instanceof EntityLiving) {
+            if (getRiding() != null && getRiding().getNetworkId() == EntityMinecartEmpty.NETWORK_ID) {
+                return false;
+            }
+            if (!this.isPlayer && !positionChanged) return false;
+            List<Block> blocks = this.getBlocksAround();
+            for (Block block : blocks) {
+                if (block.getId() == Block.SWEET_BERRY_BUSH && block.getDamage() >= 2) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public void updateMovement() {
@@ -2245,12 +2324,20 @@ public abstract class Entity extends Location implements Metadatable {
                 if (!this.noFallDamage) {
                     float damage = (float) Math.floor(fallDistance - 3 - (this.hasEffect(Effect.JUMP) ? this.getEffect(Effect.JUMP).getAmplifier() + 1 : 0));
 
-                    if (floor == BlockID.HAY_BALE || block == BlockID.HAY_BALE) {
+                    if (block == BlockID.COBWEB || block == BlockID.SWEET_BERRY_BUSH) {
+                        damage = 0;
+                    } else if (floor == BlockID.HAY_BALE || block == BlockID.HAY_BALE) {
                         damage -= (damage * 0.8f);
                     } else if (floor == BlockID.BED_BLOCK || block == BlockID.BED_BLOCK) {
                         damage -= (damage * 0.5f);
-                    } else if (floor == BlockID.SLIME_BLOCK || floor == BlockID.COBWEB || floor == BlockID.SCAFFOLDING || floor == BlockID.SWEET_BERRY_BUSH) {
+                    } else if (floor == BlockID.SLIME_BLOCK) {
                         damage = 0;
+                    } else if (floor == BlockID.SCAFFOLDING) {
+                        // 掉落到多层脚手架上免受摔落伤害
+                        Block under = this.level.getBlock(down.getFloorX(), down.getFloorY() - 1, down.getFloorZ());
+                        if (under.getId() == BlockID.SCAFFOLDING) {
+                            damage = 0;
+                        }
                     }
 
                     if (isPlayer) {
@@ -2412,6 +2499,11 @@ public abstract class Entity extends Location implements Metadatable {
         return new Location(this.x, this.y, this.z, this.yaw, this.pitch, this.headYaw, this.level);
     }
 
+    public boolean isInsideBubbleColumn() {
+        double y = this.y + this.getEyeHeight();
+        return this.level.getBlockIdAt(NukkitMath.floorDouble(this.x), NukkitMath.floorDouble(y), NukkitMath.floorDouble(this.z)) == Block.BUBBLE_COLUMN;
+    }
+
     public boolean isSubmerged() {
         double y = this.y + this.getEyeHeight();
         Block block = this.level.getBlock(this.temporalVector.setComponents(NukkitMath.floorDouble(this.x), NukkitMath.floorDouble(y), NukkitMath.floorDouble(this.z)));
@@ -2421,6 +2513,16 @@ public abstract class Entity extends Location implements Metadatable {
     public boolean isInsideOfWater() {
         Block block = level.getBlock(this.getFloorX(), this.getFloorY(), this.getFloorZ());
         return block.isWater() || block.getWaterloggingType() != Block.WaterloggingType.NO_WATERLOGGING && block.getLevelBlockAtLayer(1).isWater();
+    }
+
+    public boolean isInsideOfLava() {
+        for (Block block : this.getCollisionBlocks()) {
+            if (block instanceof BlockLava) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public boolean isInsideOfSolid() {
@@ -2700,7 +2802,7 @@ public abstract class Entity extends Location implements Metadatable {
         } else {
             this.inPortalTicks = 0;
         }
-        
+
         if (vector.lengthSquared() > 0) {
             vector = vector.normalize();
             double d = 0.014d;
@@ -2788,8 +2890,8 @@ public abstract class Entity extends Location implements Metadatable {
         // 当坐标接近int类型范围上限时，与碰撞相关的方法有可能计算出超出int表示上限的时
         // eg: Entity::getBlocksAround(), 在示例方法中，会导致服务端迅速OOM
         if (Math.abs(pos.x) > ENTITY_COORDINATES_MAX_VALUE ||
-            Math.abs(pos.y) > ENTITY_COORDINATES_MAX_VALUE ||
-            Math.abs(pos.z) > ENTITY_COORDINATES_MAX_VALUE) {
+                Math.abs(pos.y) > ENTITY_COORDINATES_MAX_VALUE ||
+                Math.abs(pos.z) > ENTITY_COORDINATES_MAX_VALUE) {
             server.getLogger().warning("Entity " + this.getName() + " is trying to set position to " + pos + " which is out of bounds!");
             return false;
         }

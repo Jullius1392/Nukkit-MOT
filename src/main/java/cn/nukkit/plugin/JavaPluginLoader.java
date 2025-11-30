@@ -23,7 +23,7 @@ public class JavaPluginLoader implements PluginLoader {
 
     private final Server server;
 
-    private final Map<String, Class> classes = new HashMap<>();
+    private final Map<String, Class<?>> classes = new HashMap<>();
     private final Map<String, PluginClassLoader> classLoaders = new HashMap<>();
 
     public JavaPluginLoader(Server server) {
@@ -32,6 +32,10 @@ public class JavaPluginLoader implements PluginLoader {
 
     @Override
     public Plugin loadPlugin(File file) throws Exception {
+        if (!this.server.isPrimaryThread()) {
+            this.server.getLogger().warning("Plugin loaded asynchronously: " + file.getName());
+        }
+
         PluginDescription description = this.getPluginDescription(file);
         if (description != null) {
             this.server.getLogger().info(this.server.getLanguage().translateString("nukkit.plugin.load", description.getFullName()));
@@ -45,7 +49,7 @@ public class JavaPluginLoader implements PluginLoader {
             this.classLoaders.put(description.getName(), classLoader);
             PluginBase plugin;
             try {
-                Class javaClass = classLoader.loadClass(className);
+                Class<?> javaClass = classLoader.loadClass(className);
 
                 if (!PluginBase.class.isAssignableFrom(javaClass)) {
                     throw new PluginException("Main class `" + description.getMain() + "' does not extend PluginBase");
@@ -54,7 +58,7 @@ public class JavaPluginLoader implements PluginLoader {
                 try {
                     Class<PluginBase> pluginClass = (Class<PluginBase>) javaClass.asSubclass(PluginBase.class);
 
-                    plugin = pluginClass.newInstance();
+                    plugin = pluginClass.getDeclaredConstructor().newInstance();
                     this.initPlugin(plugin, description, dataFolder, file);
 
                     return plugin;
@@ -84,9 +88,9 @@ public class JavaPluginLoader implements PluginLoader {
         if (loader == null) {
             return;
         }
-        Iterator<Map.Entry<String, Class>> iterator = this.classes.entrySet().iterator();
+        Iterator<Map.Entry<String, Class<?>>> iterator = this.classes.entrySet().iterator();
         while (iterator.hasNext()) {
-            Map.Entry<String, Class> entry = iterator.next();
+            Map.Entry<String, Class<?>> entry = iterator.next();
             try {
                 Class<?> aClass = loader.findClass(entry.getKey());
                 if (aClass == entry.getValue()) {

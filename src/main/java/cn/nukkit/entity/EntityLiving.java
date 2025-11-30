@@ -2,11 +2,11 @@ package cn.nukkit.entity;
 
 import cn.nukkit.Player;
 import cn.nukkit.Server;
-import cn.nukkit.block.Block;
-import cn.nukkit.block.BlockCactus;
-import cn.nukkit.block.BlockMagma;
+import cn.nukkit.block.*;
 import cn.nukkit.entity.mob.EntityDrowned;
 import cn.nukkit.entity.mob.EntityWolf;
+import cn.nukkit.entity.passive.EntityIronGolem;
+import cn.nukkit.entity.passive.EntitySkeletonHorse;
 import cn.nukkit.entity.projectile.EntityProjectile;
 import cn.nukkit.entity.weather.EntityWeather;
 import cn.nukkit.event.entity.*;
@@ -18,7 +18,6 @@ import cn.nukkit.lang.TranslationContainer;
 import cn.nukkit.level.GameRule;
 import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.FullChunk;
-import cn.nukkit.level.particle.BubbleParticle;
 import cn.nukkit.math.AxisAlignedBB;
 import cn.nukkit.math.NukkitMath;
 import cn.nukkit.math.Vector3;
@@ -321,8 +320,36 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
                 this.resetFallDistance();
             }
 
-            if (inWater && !this.hasEffect(Effect.WATER_BREATHING)) {
-                if (this instanceof EntitySwimming || this.isDrowned || (this instanceof Player && (((Player) this).isCreative() || ((Player) this).isSpectator()))) {
+            if (this.level.getGameRules().getBoolean(GameRule.FIRE_DAMAGE) && !this.hasEffect(Effect.FIRE_RESISTANCE)) {
+                if (this.isInsideOfLava()) {
+                    this.inLavaTicks++;
+                    if ((this.inLavaTicks % 10) == 0) {
+                        Block lavaBlock = level.getBlock(this.getFloorX(), this.getFloorY(), this.getFloorZ());
+                        if (!(lavaBlock instanceof BlockLava)) {
+                            lavaBlock = lavaBlock.getLevelBlockAtLayer(1);
+                        }
+                        this.attack(new EntityDamageByBlockEvent(lavaBlock, this, DamageCause.LAVA, 4));
+                        this.inLavaTicks = 0;
+                    }
+                }
+
+                if (this.isInsideOfFire()) {
+                    this.inFireTicks++;
+                    if ((this.inFireTicks % 10) == 0) {
+                        Block fireBlock = level.getBlock(this.getFloorX(), this.getFloorY(), this.getFloorZ());
+                        int fireDamage = 1;
+                        if (fireBlock instanceof BlockSoulFire) {
+                            fireDamage = 2;
+                        }
+                        this.attack(new EntityDamageByBlockEvent(fireBlock, this, DamageCause.FIRE, fireDamage));
+                        this.inFireTicks = 0;
+                    }
+                }
+            }
+
+            boolean inBubbleColumn = this.isInsideBubbleColumn();
+            if (inWater && !inBubbleColumn && !this.hasEffect(Effect.WATER_BREATHING) && !this.hasEffect(Effect.CONDUIT_POWER)) {
+                if (this instanceof EntitySwimming || this.isDrowned || this instanceof EntitySkeletonHorse || this instanceof EntityIronGolem || this instanceof Player player && (player.isCreative() || player.isSpectator())) {
                     this.setAirTicks(400);
                 } else {
                     if (turtleTicks == 0) {
@@ -331,7 +358,7 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
 
                         if (airTicks <= -20) {
                             airTicks = 0;
-                            if (!(this instanceof Player) || level.getGameRules().getBoolean(GameRule.DROWNING_DAMAGE)) {
+                            if (!this.isPlayer || level.getGameRules().getBoolean(GameRule.DROWNING_DAMAGE)) {
                                 this.attack(new EntityDamageEvent(this, DamageCause.DROWNING, 2));
                             }
                         }
@@ -359,21 +386,15 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
             }
 
             // Check collisions with blocks
-            if (this instanceof Player) {
-                if (this.age % 5 == 0) {
-                    Block block = this.level.getBlock(getFloorX(), NukkitMath.floorDouble(this.y - 0.25), getFloorZ());
+            if ((this.isPlayer || this instanceof BaseEntity) && this.riding == null && this.age % (this instanceof Player ? 2 : 10) == 0) {
+                int floorY = NukkitMath.floorDouble(this.y - 0.25);
+                if (floorY != getFloorY()) {
+                    Block block = this.level.getBlock(this.chunk, getFloorX(), floorY, getFloorZ(), false);
                     if (block instanceof BlockCactus) {
                         block.onEntityCollide(this);
                     } else if (block instanceof BlockMagma) {
                         block.onEntityCollide(this);
-                        if (this.isInsideOfWater()) {
-                            this.level.addParticle(new BubbleParticle(this));
-                            this.setMotion(this.getMotion().add(0, -0.3, 0));
-                        }
-                    } /*else if (block == Block.SOUL_SAND && this.isInsideOfWater()) {
-                        this.level.addParticle(new BubbleParticle(this));
-                        this.setMotion(this.getMotion().add(0, 0.3, 0));
-                    }*/
+                    }
                 }
             }
 
@@ -386,10 +407,10 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
                 this.knockBackTime -= tickDiff;
             }
 
-            if (this.riding == null) {
+            if (this.riding == null && this.age % 2 == 1 && !this.closed && this.isAlive()) {
                 Entity[] e = level.getNearbyEntities(this.boundingBox.grow(0.20000000298023224, 0.0D, 0.20000000298023224), this);
                 for (Entity entity : e) {
-                    if (entity instanceof EntityRideable) {
+                    if (entity instanceof EntityRideable && !entity.closed && entity.isAlive()) {
                         this.collidingWith(entity);
                     }
                 }
@@ -454,11 +475,11 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
             }
         }
 
-        return blocks.toArray(new Block[0]);
+        return blocks.toArray(Block.EMPTY_ARRAY);
     }
 
     public Block getTargetBlock(int maxDistance) {
-        return getTargetBlock(maxDistance, new Integer[]{});
+        return getTargetBlock(maxDistance, new Integer[0]);
     }
 
     public Block getTargetBlock(int maxDistance, Map<Integer, Object> transparent) {

@@ -1,23 +1,23 @@
 package cn.nukkit.resourcepacks;
 
+import cn.nukkit.network.protocol.ProtocolInfo;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import java.util.UUID;
 
-import cn.nukkit.network.protocol.ProtocolInfo;
-
 public abstract class AbstractResourcePack implements ResourcePack {
 
     protected JsonObject manifest;
     private UUID id = null;
+
     private int protocol = 0;
+    private SupportType supportType = SupportType.UNIVERSAL;
 
     protected boolean verifyManifest() {
         if (this.manifest.has("format_version") && this.manifest.has("header") && this.manifest.has("modules")) {
             JsonObject header = this.manifest.getAsJsonObject("header");
-            return header.has("description") &&
-                    header.has("name") &&
+            return (supportType == SupportType.NETEASE || (header.has("description") && header.has("name"))) &&
                     header.has("uuid") &&
                     header.has("version") &&
                     header.getAsJsonArray("version").size() == 3;
@@ -59,6 +59,28 @@ public abstract class AbstractResourcePack implements ResourcePack {
         return String.join(".", version.get(0).getAsString(),
                 version.get(1).getAsString(),
                 version.get(2).getAsString());
+    }
+
+    @Override
+    public void setSupportType(SupportType type) {
+        this.supportType = type;
+    }
+
+    @Override
+    public SupportType getSupportType() {
+        return this.supportType;
+    }
+
+    @Override
+    @Deprecated
+    public void setNetEase(boolean isNetEase) {
+        this.supportType = isNetEase ? SupportType.NETEASE : SupportType.MICROSOFT;
+    }
+
+    @Override
+    @Deprecated
+    public boolean isNetEase() {
+        return this.supportType == SupportType.NETEASE;
     }
 
     @Override

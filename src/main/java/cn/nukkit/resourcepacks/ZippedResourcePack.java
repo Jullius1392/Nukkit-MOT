@@ -23,21 +23,38 @@ public class ZippedResourcePack extends AbstractResourcePack {
     private String cdnUrl = "";
 
     public ZippedResourcePack(File file) {
+        this(file, SupportType.UNIVERSAL);
+    }
+
+    /**
+     * @deprecated Use {@link #ZippedResourcePack(File, SupportType)} instead
+     */
+    @Deprecated
+    public ZippedResourcePack(File file, boolean isNetEase) {
+        this(file, isNetEase ? SupportType.NETEASE : SupportType.UNIVERSAL);
+    }
+
+    public ZippedResourcePack(File file, SupportType packType) {
         if (!file.exists()) {
             throw new IllegalArgumentException(Server.getInstance().getLanguage()
                     .translateString("nukkit.resources.zip.not-found", file.getName()));
         }
 
         this.file = file;
+        this.setSupportType(packType);
 
         try (ZipFile zip = new ZipFile(file)) {
             ZipEntry entry = zip.getEntry("manifest.json");
             if (entry == null) {
+                entry = zip.getEntry("pack_manifest.json");
+            }
+            if (entry == null) {
                 entry = zip.stream()
-                        .filter(e-> e.getName().toLowerCase(Locale.ROOT).endsWith("manifest.json") && !e.isDirectory())
+                        .filter(e-> (e.getName().toLowerCase(Locale.ROOT).endsWith("manifest.json") || e.getName().toLowerCase(Locale.ROOT).endsWith("pack_manifest.json"))
+                                && !e.isDirectory())
                         .filter(e-> {
                             File fe = new File(e.getName());
-                            if (!fe.getName().equalsIgnoreCase("manifest.json")) {
+                            if (!fe.getName().equalsIgnoreCase("manifest.json") && !fe.getName().equalsIgnoreCase("pack_manifest.json")) {
                                 return false;
                             }
                             return fe.getParent() == null || fe.getParentFile().getParent() == null;
@@ -57,7 +74,7 @@ public class ZippedResourcePack extends AbstractResourcePack {
             }
             File keyFile = new File(parentFolder, this.file.getName() + ".key");
             if (keyFile.exists()) {
-                this.encryptionKey = new String(Files.readAllBytes(keyFile.toPath()), StandardCharsets.UTF_8);
+                this.encryptionKey = Files.readString(keyFile.toPath());
             }
         } catch (IOException e) {
             Server.getInstance().getLogger().logException(e);

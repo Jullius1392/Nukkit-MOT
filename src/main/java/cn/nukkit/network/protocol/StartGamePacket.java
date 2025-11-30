@@ -8,6 +8,7 @@ import cn.nukkit.level.GameRules;
 import cn.nukkit.level.GlobalBlockPalette;
 import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
+import cn.nukkit.network.protocol.types.AuthoritativeMovementMode;
 import cn.nukkit.network.protocol.types.ExperimentData;
 import cn.nukkit.network.protocol.types.NetworkPermissions;
 import cn.nukkit.utils.Binary;
@@ -71,7 +72,7 @@ public class StartGamePacket extends DataPacket {
     public int spawnY;
     public int spawnZ;
     public boolean hasAchievementsDisabled = true;
-    public boolean worldEditor;
+    public int editorWorldType;
     public int dayCycleStopTime = -1;
     public boolean eduMode = false;
     public int eduEditionOffer = 0;
@@ -109,7 +110,17 @@ public class StartGamePacket extends DataPacket {
     public String worldName;
     public String premiumWorldTemplateId = "";
     public boolean isTrial = false;
+    /**
+     * @deprecated use {@link #authoritativeMovementMode} instead.
+     */
+    @Deprecated
     public boolean isMovementServerAuthoritative;
+    /**
+     * @deprecated since v818. {@link AuthoritativeMovementMode#SERVER_WITH_REWIND} is now the default movement mode.
+     */
+    @SuppressWarnings("dep-ann")
+    public AuthoritativeMovementMode authoritativeMovementMode;
+    public int rewindHistorySize;
     public boolean isServerAuthoritativeBlockBreaking;
     public long currentTick;
     public int enchantmentSeed;
@@ -169,11 +180,11 @@ public class StartGamePacket extends DataPacket {
     /**
      * @since v818
      */
-    private String ownerIdentifier = "";
+    public String ownerIdentifier = "";
     /**
      * @since v827
      */
-    private boolean tickDeathSystemsEnabled;
+    public boolean tickDeathSystemsEnabled;
 
     @Override
     public void decode() {
@@ -181,6 +192,10 @@ public class StartGamePacket extends DataPacket {
 
     @Override
     public void encode() {
+        if (this.authoritativeMovementMode == null) { //兼容插件
+            this.authoritativeMovementMode = (this.isMovementServerAuthoritative || this.protocol >= ProtocolInfo.v1_21_80) ? AuthoritativeMovementMode.SERVER : AuthoritativeMovementMode.CLIENT;
+        }
+
         this.reset();
         this.putEntityUniqueId(this.entityUniqueId);
         this.putEntityRuntimeId(this.entityRuntimeId);
@@ -209,7 +224,7 @@ public class StartGamePacket extends DataPacket {
         this.putBlockVector3(this.spawnX, this.spawnY, this.spawnZ);
         this.putBoolean(this.hasAchievementsDisabled);
         if (protocol >= ProtocolInfo.v1_19_10) {
-            this.putBoolean(this.worldEditor);
+            this.putVarInt(this.editorWorldType);
             if (protocol >= ProtocolInfo.v1_19_80) {
                 this.putBoolean(this.createdInEditor);
                 this.putBoolean(this.exportedFromEditor);
@@ -244,7 +259,7 @@ public class StartGamePacket extends DataPacket {
         }
         this.putBoolean(this.commandsEnabled);
         this.putBoolean(this.isTexturePacksRequired);
-        this.putGameRules(protocol, gameRules);
+        this.putGameRules(this.gameVersion, gameRules, true);
         if (protocol >= ProtocolInfo.v1_16_100) {
             if (Server.getInstance().enableExperimentMode && !this.experiments.isEmpty()) {
                 this.putLInt(this.experiments.size()); // Experiment count
@@ -336,15 +351,15 @@ public class StartGamePacket extends DataPacket {
             if (protocol >= ProtocolInfo.v1_16_100) {
                 if (protocol >= ProtocolInfo.v1_16_210) {
                     if (protocol < ProtocolInfo.v1_21_90) {
-                        this.putVarInt(this.isMovementServerAuthoritative ? 1 : 0); // 2 - rewind
+                        this.putVarInt(this.authoritativeMovementMode.ordinal());
                     }
-                    this.putVarInt(0); // RewindHistorySize
-                    this.putBoolean(this.isServerAuthoritativeBlockBreaking); // isServerAuthoritativeBlockBreaking
+                    this.putVarInt(this.rewindHistorySize);
+                    this.putBoolean(this.isServerAuthoritativeBlockBreaking);
                 } else {
-                    this.putVarInt(this.isMovementServerAuthoritative ? 1 : 0); // 2 - rewind
+                    this.putVarInt(this.authoritativeMovementMode.ordinal());
                 }
             } else {
-                this.putBoolean(this.isMovementServerAuthoritative);
+                this.putBoolean(this.authoritativeMovementMode != AuthoritativeMovementMode.CLIENT);
             }
         }
         this.putLLong(this.currentTick);

@@ -98,7 +98,7 @@ public class CraftingTransaction extends InventoryTransaction {
 
     @Override
     public boolean canExecute() {
-        CraftingManager craftingManager = source.getServer().getCraftingManager();
+        /*CraftingManager craftingManager = source.getServer().getCraftingManager();
         Inventory inventory;
         if (craftingType == Player.CRAFTING_SMITHING) {
             inventory = source.getWindowById(Player.SMITHING_WINDOW_ID);
@@ -116,7 +116,15 @@ public class CraftingTransaction extends InventoryTransaction {
             } else {
                 setTransactionRecipe(craftingManager.matchRecipe(source.protocol, inputs, this.primaryOutput, this.secondaryOutputs));
             }
+        }*/
+        Recipe recipe = source.getServer().getCraftingManager().matchRecipe(source.protocol, this.inputs, this.primaryOutput, this.secondaryOutputs);
+        if (recipe == null) {
+            MultiRecipe multiRecipe = source.getServer().getCraftingManager().getMultiRecipe(this.source, this.getPrimaryOutput(), this.getInputList());
+            if (multiRecipe != null) {
+                recipe = multiRecipe.toRecipe(this.getPrimaryOutput(), this.getInputList());
+            }
         }
+        this.setTransactionRecipe(recipe);
         return this.getTransactionRecipe() != null && super.canExecute();
     }
 
@@ -142,11 +150,15 @@ public class CraftingTransaction extends InventoryTransaction {
          * So people don't whine about messy desync issues when someone cancels CraftItemEvent, or when a crafting
          * transaction goes wrong.
          */
-        ContainerClosePacket pk = new ContainerClosePacket();
-        pk.windowId = ContainerIds.NONE;
-        pk.wasServerInitiated = true;
-        pk.type = ContainerType.NONE;
-        source.getServer().getScheduler().scheduleDelayedTask(InternalPlugin.INSTANCE, () -> source.dataPacket(pk), 20);
+        source.getServer().getScheduler().scheduleDelayedTask(InternalPlugin.INSTANCE, () -> {
+            if (source.isOnline() && source.isAlive()) {
+                ContainerClosePacket pk = new ContainerClosePacket();
+                pk.windowId = ContainerIds.NONE;
+                pk.wasServerInitiated = true;
+                pk.type = ContainerType.NONE;
+                source.dataPacket(pk);
+            }
+        }, 10);
 
         this.source.resetCraftingGridType();
     }
@@ -175,10 +187,10 @@ public class CraftingTransaction extends InventoryTransaction {
         return false;
     }
 
-    public boolean checkForCraftingPart(List<InventoryAction> actions) {
+    @Override
+    public boolean checkForItemPart(List<InventoryAction> actions) {
         for (InventoryAction action : actions) {
-            if (action instanceof SlotChangeAction) {
-                SlotChangeAction slotChangeAction = (SlotChangeAction) action;
+            if (action instanceof SlotChangeAction slotChangeAction) {
                 if (slotChangeAction.getInventory().getType() == InventoryType.UI) {
                     if (slotChangeAction.getSlot() == 50) {
                         if (!slotChangeAction.getSourceItem().equals(slotChangeAction.getTargetItem())) {

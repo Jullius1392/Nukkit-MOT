@@ -2,6 +2,7 @@ package cn.nukkit.network.protocol;
 
 import cn.nukkit.GameVersion;
 import cn.nukkit.Nukkit;
+import cn.nukkit.Server;
 import cn.nukkit.block.Block;
 import cn.nukkit.level.GlobalBlockPalette;
 import cn.nukkit.network.protocol.types.biome.*;
@@ -38,6 +39,7 @@ public class BiomeDefinitionListPacket extends DataPacket {
     private static final BatchPacket CACHED_PACKET_567;
     private static final BatchPacket CACHED_PACKET_786;
     private static final BatchPacket CACHED_PACKET_800;
+    private static final BatchPacket CACHED_PACKET_827;
     private static final BatchPacket CACHED_PACKET;
 
     private static final byte[] TAG_361;
@@ -148,19 +150,40 @@ public class BiomeDefinitionListPacket extends DataPacket {
             pk.protocol = ProtocolInfo.v1_21_100;
             pk.gameVersion = GameVersion.V1_21_100;
             pk.tryEncode();
-            CACHED_PACKET = pk.compress(Deflater.BEST_COMPRESSION);
+            CACHED_PACKET_827 = pk.compress(Deflater.BEST_COMPRESSION);
         } catch (Exception e) {
             throw new AssertionError("Error whilst loading biome definitions 827", e);
         }
+        try {
+            BiomeDefinitionListPacket pk = new BiomeDefinitionListPacket();
+            pk.biomeDefinitions = gson.fromJson(
+                    Utils.loadJsonResource("biome/stripped_biome_definitions_844.json"),
+                    new TypeToken<LinkedHashMap<String, BiomeDefinitionData>>() {}.getType()
+            );
+            pk.protocol = ProtocolInfo.v1_21_110;
+            pk.gameVersion = GameVersion.V1_21_110;
+            pk.tryEncode();
+            CACHED_PACKET = pk.compress(Deflater.BEST_COMPRESSION);
+        } catch (Exception e) {
+            throw new AssertionError("Error whilst loading biome definitions 844", e);
+        }
     }
 
+    @Deprecated
     public static DataPacket getCachedPacket(int protocol) {
+        return getCachedPacket(GameVersion.byProtocol(protocol, Server.getInstance().onlyNetEaseMode));
+    }
+
+    public static DataPacket getCachedPacket(GameVersion gameVersion) {
+        int protocol = gameVersion.getProtocol();
         if (protocol < ProtocolInfo.v1_12_0) {
             throw new UnsupportedOperationException("Unsupported protocol version: " + protocol);
         }
 
-        if (protocol >= ProtocolInfo.v1_21_100) {
+        if (protocol >= ProtocolInfo.v1_21_110_26) {
             return CACHED_PACKET;
+        } else if (protocol >= ProtocolInfo.v1_21_100) {
+            return CACHED_PACKET_827;
         } else if (protocol >= ProtocolInfo.v1_21_80) {
             return CACHED_PACKET_800;
         } else if (protocol >= ProtocolInfo.v1_21_70_24) {
@@ -237,10 +260,14 @@ public class BiomeDefinitionListPacket extends DataPacket {
         }
         this.putLFloat(definition.getTemperature());
         this.putLFloat(definition.getDownfall());
-        this.putLFloat(definition.getRedSporeDensity());
-        this.putLFloat(definition.getBlueSporeDensity());
-        this.putLFloat(definition.getAshDensity());
-        this.putLFloat(definition.getWhiteAshDensity());
+        if (protocol >= GameVersion.V1_21_110.getProtocol()) {
+            this.putLFloat(definition.getFoliageSnow());
+        } else {
+            this.putLFloat(definition.getRedSporeDensity());
+            this.putLFloat(definition.getBlueSporeDensity());
+            this.putLFloat(definition.getAshDensity());
+            this.putLFloat(definition.getWhiteAshDensity());
+        }
         this.putLFloat(definition.getDepth());
         this.putLFloat(definition.getScale());
         this.putLInt(definition.getMapWaterColor().getRGB());
@@ -276,10 +303,12 @@ public class BiomeDefinitionListPacket extends DataPacket {
     protected void putClimate(BiomeClimateData climate) {
         this.putLFloat(climate.getTemperature());
         this.putLFloat(climate.getDownfall());
-        this.putLFloat(climate.getRedSporeDensity());
-        this.putLFloat(climate.getBlueSporeDensity());
-        this.putLFloat(climate.getAshDensity());
-        this.putLFloat(climate.getWhiteAshDensity());
+        if (protocol <= GameVersion.V1_21_100.getProtocol()) {
+            this.putLFloat(climate.getRedSporeDensity());
+            this.putLFloat(climate.getBlueSporeDensity());
+            this.putLFloat(climate.getAshDensity());
+            this.putLFloat(climate.getWhiteAshDensity());
+        }
         this.putLFloat(climate.getSnowAccumulationMin());
         this.putLFloat(climate.getSnowAccumulationMax());
     }

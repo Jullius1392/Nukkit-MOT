@@ -16,7 +16,6 @@ import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.network.protocol.ContainerSetDataPacket;
 import cn.nukkit.network.protocol.LevelSoundEventPacket;
-import cn.nukkit.network.protocol.ProtocolInfo;
 
 import java.util.HashSet;
 import java.util.concurrent.ThreadLocalRandom;
@@ -270,8 +269,8 @@ public class BlockEntityFurnace extends BlockEntitySpawnable implements Inventor
         }
     }
 
-    protected SmeltingRecipe matchRecipe(int protocol, Item raw) {
-        return this.server.getCraftingManager().matchFurnaceRecipe(protocol, raw);
+    protected SmeltingRecipe matchRecipe(Item raw) {
+        return this.server.getCraftingManager().matchFurnaceRecipe(raw);
     }
 
     protected int getSpeedMultiplier() {
@@ -288,7 +287,7 @@ public class BlockEntityFurnace extends BlockEntitySpawnable implements Inventor
         Item fuel = this.inventory.getFuel();
         Item raw = this.inventory.getSmelting();
         Item product = this.inventory.getResult();
-        SmeltingRecipe smelt = this.matchRecipe(ProtocolInfo.CURRENT_PROTOCOL, raw);
+        SmeltingRecipe smelt = this.matchRecipe(raw);
         boolean canSmelt = (smelt != null && raw.getCount() > 0 && ((smelt.getResult().equals(product, true) && product.getCount() < product.getMaxStackSize()) || product.getId() == Item.AIR));
 
         if (burnTime <= 0 && canSmelt && fuel.getFuelTime() != null && fuel.getCount() > 0) {
@@ -309,7 +308,7 @@ public class BlockEntityFurnace extends BlockEntitySpawnable implements Inventor
                 cookTime++;
                 if (cookTime >= readyAt) {
                     Item result = smelt.getResult();
-                    Item newProduct = Item.fromString(result.getNamespaceId(ProtocolInfo.CURRENT_PROTOCOL) + ":" + result.getDamage());
+                    Item newProduct = result.clone();
                     newProduct.setCount(product.getCount() + 1);
                     product = newProduct;
 

@@ -29,7 +29,7 @@ public class MobEquipmentProcessor extends DataPacketProcessor<MobEquipmentPacke
     @Override
     public void handle(@NotNull PlayerHandle playerHandle, @NotNull MobEquipmentPacket pk) {
         Player player = playerHandle.player;
-        
+
         if (!player.spawned || !player.isAlive()) {
             return;
         }
@@ -47,22 +47,23 @@ public class MobEquipmentProcessor extends DataPacketProcessor<MobEquipmentPacke
         }
 
         Item item = inv.getItem(pk.hotbarSlot);
-        
+
         if (!item.equals(pk.item, false, true)) {
             Item fixItem = Item.get(item.getId(), item.getDamage(), item.getCount(), item.getCompoundTag());
             if (fixItem.equals(pk.item, false, true)) {
                 inv.setItem(pk.hotbarSlot, fixItem);
             } else {
                 player.getServer().getLogger().debug("Tried to equip "+pk.item+" but have {} in target slot "+fixItem);
+                player.getServer().getLogger().debug("Tried to equip " + pk.item + " but have " + fixItem + " in target slot");
                 inv.sendContents(player);
             }
         }
-        
+
         if (inv instanceof PlayerInventory) {
             ((PlayerInventory) inv).equipItem(pk.hotbarSlot);
         }
 
-        player.setDataFlag(Player.DATA_FLAGS, Player.DATA_FLAG_ACTION, false);
+        player.setUsingItem(false);
     }
 
     @Override

@@ -561,13 +561,16 @@ public class LevelDBProvider implements LevelProvider {
             NbtMap ticks = saveBlockTickingQueue(blockUpdateEntries, currentTick);
             if (ticks != null) {
                 ByteBuf byteBuf = ByteBufAllocator.DEFAULT.ioBuffer();
-                try (NBTOutputStream outputStream = NbtUtils.createWriterLE(new ByteBufOutputStream(byteBuf))) {
-                    outputStream.writeTag(ticks);
+                try {
+                    try (NBTOutputStream outputStream = NbtUtils.createWriterLE(new ByteBufOutputStream(byteBuf))) {
+                        outputStream.writeTag(ticks);
+                    }
+                    writeBatch.put(pendingScheduledTicksKey, Utils.convertByteBuf2Array(byteBuf));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
+                } finally {
+                    byteBuf.release();
                 }
-                writeBatch.put(pendingScheduledTicksKey, Utils.convertByteBuf2Array(byteBuf));
-                byteBuf.release();
             } else {
                 writeBatch.delete(pendingScheduledTicksKey);
             }
@@ -601,10 +604,14 @@ public class LevelDBProvider implements LevelProvider {
         chunk.writeLock().lock();
         try {
             this.db.write(batch);
-            batch.close();
         } catch (Exception e) {
             log.error("Exception in saveChunkCallback for {}", this.getName(), e);
         } finally {
+            try {
+                batch.close();
+            } catch (IOException e) {
+                log.error("Failed to close WriteBatch for {}", this.getName(), e);
+            }
             chunk.writeLock().unlock();
         }
     }
@@ -734,23 +741,36 @@ public class LevelDBProvider implements LevelProvider {
 
             gcLock.lock();
 
-            this.unloadChunksUnsafe(true);
+            try {
+                this.unloadChunksUnsafe(true);
+            } catch (Exception e) {
+                log.error("Error unloading chunks during close for: {}", this.getName(), e);
+            }
             this.closed = true;
             this.level = null;
             this.executor.shutdown();
             try {
-                this.executor.awaitTermination(1, TimeUnit.DAYS);
+                if (!this.executor.awaitTermination(10, TimeUnit.MINUTES)) {
+                    log.warn("LevelDB executor did not terminate in time, forcing shutdown for: {}", this.getName());
+                    java.util.List<Runnable> droppedTasks = this.executor.shutdownNow();
+                    if (!droppedTasks.isEmpty()) {
+                        log.warn("Dropped {} pending tasks during forced shutdown", droppedTasks.size());
+                    }
+                    if (!this.executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                        log.error("LevelDB executor did not terminate even after forced shutdown for: {}", this.getName());
+                    }
+                }
             } catch (InterruptedException e) {
-                Server.getInstance().getLogger().error("Stopping LevelDB Executor interrupted", e);
+                this.executor.shutdownNow();
             }
-
+        } finally {
             try {
                 this.db.close();
             } catch (IOException e) {
-                throw new RuntimeException("Can not close database", e);
+                log.error("Can not close database: {}", this.getName(), e);
+            } finally {
+                this.gcLock.unlock();
             }
-        } finally {
-            this.gcLock.unlock();
         }
     }
 
@@ -955,8 +975,8 @@ public class LevelDBProvider implements LevelProvider {
 
     protected void loadBlockTickingQueue(byte[] data, boolean tickingQueueTypeIsRandom) {
         NbtMap ticks;
-        try {
-            ticks = (NbtMap) NbtUtils.createReaderLE(new ByteBufInputStream(Unpooled.wrappedBuffer(data))).readTag();
+        try (NBTInputStream reader = NbtUtils.createReaderLE(new ByteBufInputStream(Unpooled.wrappedBuffer(data)))) {
+            ticks = (NbtMap) reader.readTag();
         } catch (IOException e) {
             throw new ChunkException("Corrupted block ticking data", e);
         }
@@ -1083,8 +1103,10 @@ public class LevelDBProvider implements LevelProvider {
             }
 
             log.debug("Running AutoCompaction... ({})", path);
+            boolean locked = false;
             try {
-                if (!gcLock.tryLock(500, TimeUnit.MILLISECONDS)) {
+                locked = gcLock.tryLock(500, TimeUnit.MILLISECONDS);
+                if (!locked) {
                     return;
                 }
 
@@ -1114,7 +1136,9 @@ public class LevelDBProvider implements LevelProvider {
             } catch (InterruptedException e) {
                 log.debug("AutoCompaction interrupted", e);
             } finally {
-                gcLock.unlock();
+                if (locked) {
+                    gcLock.unlock();
+                }
             }
         }
 

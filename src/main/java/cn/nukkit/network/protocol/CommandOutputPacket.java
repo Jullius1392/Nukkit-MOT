@@ -8,7 +8,6 @@ import lombok.ToString;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Predicate;
 
 @ToString
 public class CommandOutputPacket extends DataPacket {
@@ -27,7 +26,7 @@ public class CommandOutputPacket extends DataPacket {
 
     @Override
     public void decode() {
-        //non
+        this.decodeUnsupported();
     }
 
     @Override
@@ -41,20 +40,19 @@ public class CommandOutputPacket extends DataPacket {
         putUUID(this.commandOriginData.uuid);
         putString(this.commandOriginData.requestId);
 
+        long playerId = this.commandOriginData.getPlayerId() != null ? this.commandOriginData.getPlayerId() : -1;
         if (this.protocol >= ProtocolInfo.v1_21_130_28) {
-            this.putLLong(this.commandOriginData.getVarLong().orElse(-1));// unknown
+            this.putLLong(playerId);
             this.putString(this.type.getNetworkname());
+            this.putLInt(this.successCount);
         } else {
             if (this.commandOriginData.type == CommandOriginData.Origin.DEV_CONSOLE || this.commandOriginData.type == CommandOriginData.Origin.TEST) {
-                putVarLong(this.commandOriginData.getVarLong().orElse(-1));
+                putVarLong(playerId);
             }
+            this.putByte((byte) this.type.ordinal());
+            this.putUnsignedVarInt(this.successCount);
+        }
 
-            putByte((byte) this.type.ordinal());
-            putUnsignedVarInt(this.successCount);
-        }
-        if (this.protocol >= ProtocolInfo.v1_21_130_28) {
-            this.putInt(this.successCount);
-        }
         this.putUnsignedVarInt(messages.size());
         for (var msg : messages) {
             if (this.protocol >= ProtocolInfo.v1_21_130_28) {

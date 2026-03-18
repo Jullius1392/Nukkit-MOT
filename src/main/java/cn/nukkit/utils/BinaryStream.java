@@ -272,6 +272,10 @@ public class BinaryStream {
         this.put(new byte[]{b});
     }
 
+    public void putByte(int b) {
+        putByte((byte) b);
+    }
+
     /**
      * Reads a list of Attributes from the stream.
      *
@@ -776,7 +780,7 @@ public class BinaryStream {
 
             if (compoundTag != null && !compoundTag.getAllTags().isEmpty()) {
                 if (compoundTag.contains("Damage")) {
-                    if (stringId != null || id > 255) {
+                    if (stringId != null || id > 255 || protocolId >= ProtocolInfo.v1_19_0_31) {
                         damage = compoundTag.getInt("Damage");
                     }
                     compoundTag.remove("Damage");
@@ -1651,11 +1655,11 @@ public class BinaryStream {
         }
     }
 
-    public <T> void putOptionalNull(T object, Consumer<T> consumer) {
+    public <T> void putOptionalNull(T object, Consumer<@NotNull T> consumer) {
         this.putOptional(Objects::nonNull, object, consumer);
     }
 
-    public <T> void putOptionalNull(T object, BiConsumer<BinaryStream, T> consumer) {
+    public <T> void putOptionalNull(T object, BiConsumer<BinaryStream, @NotNull T> consumer) {
         this.putOptional(Objects::nonNull, object, consumer);
     }
 
@@ -1676,12 +1680,20 @@ public class BinaryStream {
         return this.offset < 0 || this.offset >= this.buffer.length;
     }
 
-    @SneakyThrows(IOException.class)
     public CompoundTag getTag() {
+        return getTag(ByteOrder.BIG_ENDIAN, false);
+    }
+
+    public CompoundTag getTagNetworkLE() {
+        return getTag(ByteOrder.LITTLE_ENDIAN, true);
+    }
+
+    @SneakyThrows(IOException.class)
+    public CompoundTag getTag(ByteOrder endianness, boolean network) {
         ByteArrayInputStream is = new ByteArrayInputStream(buffer, offset, buffer.length);
         int initial = is.available();
         try {
-            return NBTIO.read(is);
+            return NBTIO.read(is, endianness, network);
         } finally {
             offset += initial - is.available();
         }

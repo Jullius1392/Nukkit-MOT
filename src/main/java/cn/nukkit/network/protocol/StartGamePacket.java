@@ -3,6 +3,7 @@ package cn.nukkit.network.protocol;
 import cn.nukkit.Server;
 import cn.nukkit.block.custom.CustomBlockDefinition;
 import cn.nukkit.block.custom.CustomBlockManager;
+import cn.nukkit.block.custom.serializer.CustomBlockDefinitionSerializer;
 import cn.nukkit.item.RuntimeItems;
 import cn.nukkit.level.GameRules;
 import cn.nukkit.level.GlobalBlockPalette;
@@ -190,6 +191,7 @@ public class StartGamePacket extends DataPacket {
 
     @Override
     public void decode() {
+        this.decodeUnsupported();
     }
 
     @Override
@@ -332,7 +334,7 @@ public class StartGamePacket extends DataPacket {
                 if (protocol >= ProtocolInfo.v1_19_20) {
                     this.putByte(this.chatRestrictionLevel);
                     this.putBoolean(this.disablePlayerInteractions);
-                    if (protocol >= ProtocolInfo.v1_21_0) {
+                    if (protocol >= ProtocolInfo.v1_21_0 && protocol < ProtocolInfo.v1_26_0) {
                         this.putString(this.serverId);
                         this.putString(this.worldId);
                         this.putString(this.scenarioId);
@@ -375,7 +377,8 @@ public class StartGamePacket extends DataPacket {
                     for (CustomBlockDefinition definition : this.blockDefinitions) {
                         this.putString(definition.identifier());
                         try {
-                            this.put(NBTIO.write(definition.nbt(), ByteOrder.LITTLE_ENDIAN, true));
+                            CompoundTag serializedNbt = CustomBlockDefinitionSerializer.serialize(definition.nbt(), protocol);
+                            this.put(NBTIO.write(serializedNbt, ByteOrder.LITTLE_ENDIAN, true));
                         } catch (Exception e) {
                              log.error("Error while encoding NBT data of CustomBlockDefinition", e);
                         }
@@ -417,6 +420,14 @@ public class StartGamePacket extends DataPacket {
                                             this.putBoolean(this.tickDeathSystemsEnabled);
                                         }
                                         this.putBoolean(this.networkPermissions.isServerAuthSounds());
+                                        if (protocol >= ProtocolInfo.v1_26_0) {
+                                            // v924: Server telemetry data
+                                            this.putBoolean(false); // containServerJoinInformation
+                                            this.putString(this.serverId); // serverIdentifier
+                                            this.putString(this.scenarioId); // scenarioIdentifier
+                                            this.putString(this.worldId); // worldIdentifier
+                                            this.putString(this.ownerIdentifier); // ownerIdentifier
+                                        }
                                     }
                                 }
                             }

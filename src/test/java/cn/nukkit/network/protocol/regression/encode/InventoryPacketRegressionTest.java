@@ -28,6 +28,10 @@ public class InventoryPacketRegressionTest extends AbstractPacketRegressionTest 
         return filteredVersions(407);
     }
 
+    static Stream<Arguments> versionsPre407() {
+        return filteredVersionsRange(291, 407);
+    }
+
     static Stream<Arguments> versionsFrom712() {
         return filteredVersions(712);
     }
@@ -37,6 +41,7 @@ public class InventoryPacketRegressionTest extends AbstractPacketRegressionTest 
     void testMobEquipmentPacket(int protocolVersion) {
         var nukkitPacket = new MobEquipmentPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.eid = 42;
         nukkitPacket.item = Item.AIR_ITEM;
         nukkitPacket.inventorySlot = 0;
@@ -58,6 +63,7 @@ public class InventoryPacketRegressionTest extends AbstractPacketRegressionTest 
     void testMobArmorEquipmentPacket(int protocolVersion) {
         var nukkitPacket = new MobArmorEquipmentPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.eid = 42;
         nukkitPacket.slots = new Item[]{Item.AIR_ITEM, Item.AIR_ITEM, Item.AIR_ITEM, Item.AIR_ITEM};
         if (protocolVersion >= ProtocolInfo.v1_21_20) {
@@ -76,6 +82,7 @@ public class InventoryPacketRegressionTest extends AbstractPacketRegressionTest 
     void testInventoryContentPacket(int protocolVersion) {
         var nukkitPacket = new InventoryContentPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.inventoryId = 1;
         nukkitPacket.slots = new Item[]{Item.AIR_ITEM, Item.AIR_ITEM};
         nukkitPacket.encode();
@@ -92,6 +99,7 @@ public class InventoryPacketRegressionTest extends AbstractPacketRegressionTest 
     void testInventorySlotPacket(int protocolVersion) {
         var nukkitPacket = new InventorySlotPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.inventoryId = 1;
         nukkitPacket.slot = 5;
         nukkitPacket.item = Item.AIR_ITEM;
@@ -109,6 +117,7 @@ public class InventoryPacketRegressionTest extends AbstractPacketRegressionTest 
     void testContainerClosePacket(int protocolVersion) {
         var nukkitPacket = new ContainerClosePacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.windowId = 5;
         if (protocolVersion >= ProtocolInfo.v1_16_100) {
             nukkitPacket.wasServerInitiated = true;
@@ -121,6 +130,44 @@ public class InventoryPacketRegressionTest extends AbstractPacketRegressionTest 
         assertEquals(5, cbPacket.getId());
     }
 
+    @ParameterizedTest(name = "InventoryTransactionPacket v{0} (<407)")
+    @MethodSource("versionsPre407")
+    void testInventoryTransactionPacketPre407(int protocolVersion) {
+        var nukkitPacket = new InventoryTransactionPacket();
+        nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
+        nukkitPacket.transactionType = InventoryTransactionPacket.TYPE_RELEASE_ITEM;
+
+        var action = new cn.nukkit.network.protocol.types.NetworkInventoryAction();
+        action.sourceType = cn.nukkit.network.protocol.types.NetworkInventoryAction.SOURCE_CONTAINER;
+        action.windowId = 0;
+        action.inventorySlot = 4;
+        action.oldItem = Item.AIR_ITEM;
+        action.newItem = Item.AIR_ITEM;
+        nukkitPacket.actions = new cn.nukkit.network.protocol.types.NetworkInventoryAction[]{action};
+
+        var releaseItemData = new cn.nukkit.inventory.transaction.data.ReleaseItemData();
+        releaseItemData.actionType = InventoryTransactionPacket.RELEASE_ITEM_ACTION_RELEASE;
+        releaseItemData.hotbarSlot = 2;
+        releaseItemData.itemInHand = Item.AIR_ITEM;
+        releaseItemData.headRot = new cn.nukkit.math.Vector3(1.5f, 64.0f, -2.5f);
+        nukkitPacket.transactionData = releaseItemData;
+        nukkitPacket.encode();
+
+        var cbPacket = crossDecode(nukkitPacket,
+                org.cloudburstmc.protocol.bedrock.packet.InventoryTransactionPacket.class);
+
+        assertEquals(org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventoryTransactionType.ITEM_RELEASE,
+                cbPacket.getTransactionType());
+        assertEquals(1, cbPacket.getActions().size());
+        assertEquals(4, cbPacket.getActions().get(0).getSlot());
+        assertEquals(InventoryTransactionPacket.RELEASE_ITEM_ACTION_RELEASE, cbPacket.getActionType());
+        assertEquals(2, cbPacket.getHotbarSlot());
+        assertEquals(1.5f, cbPacket.getHeadPosition().getX(), 0.001f);
+        assertEquals(64.0f, cbPacket.getHeadPosition().getY(), 0.001f);
+        assertEquals(-2.5f, cbPacket.getHeadPosition().getZ(), 0.001f);
+    }
+
     // ==================== CreativeContentPacket ====================
 
     @ParameterizedTest(name = "CreativeContentPacket v{0} (empty/spectator)")
@@ -128,6 +175,7 @@ public class InventoryPacketRegressionTest extends AbstractPacketRegressionTest 
     void testCreativeContentPacketEmpty(int protocolVersion) {
         var nukkitPacket = new CreativeContentPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         // null entries/creativeItems = spectator mode
         nukkitPacket.encode();
 
@@ -142,6 +190,7 @@ public class InventoryPacketRegressionTest extends AbstractPacketRegressionTest 
     void testCreativeContentPacketWithItems(int protocolVersion) {
         var nukkitPacket = new CreativeContentPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.entries = new Item[]{Item.AIR_ITEM};
         nukkitPacket.encode();
 

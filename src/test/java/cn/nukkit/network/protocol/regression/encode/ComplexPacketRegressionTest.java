@@ -59,6 +59,10 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
         return filteredVersions(ProtocolInfo.v1_21_130_28);
     }
 
+    static Stream<Arguments> versionsFrom924() {
+        return filteredVersions(ProtocolInfo.v1_26_0);
+    }
+
     static Stream<Arguments> versionsPre662() {
         return filteredVersionsRange(291, ProtocolInfo.v1_20_70);
     }
@@ -83,6 +87,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testMobEffectPacketPre662(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.MobEffectPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.eid = 42;
         nukkitPacket.eventId = cn.nukkit.network.protocol.MobEffectPacket.EVENT_ADD;
         nukkitPacket.effectId = 1; // Speed
@@ -107,6 +112,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testMobEffectPacketLLongTick(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.MobEffectPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.eid = 42;
         nukkitPacket.eventId = cn.nukkit.network.protocol.MobEffectPacket.EVENT_ADD;
         nukkitPacket.effectId = 1;
@@ -130,6 +136,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testMobEffectPacketVarLongTick(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.MobEffectPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.eid = 42;
         nukkitPacket.eventId = cn.nukkit.network.protocol.MobEffectPacket.EVENT_ADD;
         nukkitPacket.effectId = 1;
@@ -153,6 +160,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testMobEffectPacketWithAmbient(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.MobEffectPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.eid = 42;
         nukkitPacket.eventId = cn.nukkit.network.protocol.MobEffectPacket.EVENT_ADD;
         nukkitPacket.effectId = 1;
@@ -178,6 +186,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testAnimatePacketPreV898(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.AnimatePacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.action = cn.nukkit.network.protocol.AnimatePacket.Action.SWING_ARM;
         nukkitPacket.eid = 42;
         if (protocolVersion >= ProtocolInfo.v1_21_120) {
@@ -197,6 +206,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testAnimatePacketFromV898(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.AnimatePacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.action = cn.nukkit.network.protocol.AnimatePacket.Action.SWING_ARM;
         nukkitPacket.eid = 42;
         nukkitPacket.data = 0.0f;
@@ -217,6 +227,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testUpdateAttributesPacket(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.UpdateAttributesPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.entityId = 42;
         nukkitPacket.entries = new Attribute[]{
                 Attribute.getAttribute(Attribute.MAX_HEALTH).setValue(20.0f)
@@ -243,6 +254,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testLevelSoundEventPacketPre786(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.LevelSoundEventPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.sound = cn.nukkit.network.protocol.LevelSoundEventPacket.SOUND_EXPLODE; // 48
         nukkitPacket.x = 100.5f;
         nukkitPacket.y = 64.0f;
@@ -270,6 +282,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testLevelSoundEventPacketFrom786(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.LevelSoundEventPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.sound = cn.nukkit.network.protocol.LevelSoundEventPacket.SOUND_EXPLODE;
         nukkitPacket.x = 100.5f;
         nukkitPacket.y = 64.0f;
@@ -299,6 +312,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testSpawnParticleEffectPacketPre332(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.SpawnParticleEffectPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.dimensionId = 0;
         nukkitPacket.position = new Vector3f(100.5f, 64.0f, 200.5f);
         nukkitPacket.identifier = "minecraft:explosion_particle";
@@ -319,6 +333,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testSpawnParticleEffectPacketFrom332(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.SpawnParticleEffectPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.dimensionId = 0;
         nukkitPacket.uniqueEntityId = -1;
         nukkitPacket.position = new Vector3f(100.5f, 64.0f, 200.5f);
@@ -356,6 +371,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testCommandOutputPacketPreV898(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.CommandOutputPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.commandOriginData = new CommandOriginData(
                 CommandOriginData.Origin.PLAYER,
                 UUID.fromString("12345678-1234-1234-1234-123456789abc"),
@@ -387,6 +403,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testCommandOutputPacketDevConsole(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.CommandOutputPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.commandOriginData = new CommandOriginData(
                 CommandOriginData.Origin.DEV_CONSOLE,
                 UUID.fromString("12345678-1234-1234-1234-123456789abc"),
@@ -413,6 +430,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testCommandOutputPacketV898(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.CommandOutputPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.commandOriginData = new CommandOriginData(
                 CommandOriginData.Origin.PLAYER,
                 UUID.fromString("12345678-1234-1234-1234-123456789abc"),
@@ -457,6 +475,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testItemComponentPacketPre776(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.ItemComponentPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.entries.add(new cn.nukkit.network.protocol.ItemComponentPacket.ItemDefinition(
                 "custom:test_item", 0, false, 0,
                 new CompoundTag("").putString("name", "test").putInt("maxStack", 64)
@@ -475,6 +494,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testItemComponentPacketFrom776(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.ItemComponentPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.entries.add(new cn.nukkit.network.protocol.ItemComponentPacket.ItemDefinition(
                 "custom:sword", 500, true, 1,
                 new CompoundTag("").putString("name", "sword")
@@ -502,6 +522,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testItemComponentPacketEmpty(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.ItemComponentPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.encode();
 
         var cbPacket = crossDecode(nukkitPacket,
@@ -526,6 +547,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testCameraPresetsPacketPreV818(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.CameraPresetsPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
 
         var preset = new CameraPreset();
         preset.setIdentifier("minecraft:free");
@@ -549,6 +571,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testCameraPresetsPacketMinimal(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.CameraPresetsPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
 
         var preset = new CameraPreset();
         preset.setIdentifier("minecraft:free");
@@ -574,6 +597,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testCameraPresetsPacketWithFields(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.CameraPresetsPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
 
         var preset = new CameraPreset();
         preset.setIdentifier("minecraft:custom_cam");
@@ -607,17 +631,83 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
         assertEquals(90.0f, cbPreset.getYaw(), 0.001f);
     }
 
-    // ==================== StartGamePacket ====================
-    // Skipped: StartGamePacket has extremely complex version branching with 50+ fields,
-    // block/item palettes, game rules, and experiments. The encoded payload includes
-    // large binary blobs (block palette, item palette) that vary significantly per version.
-    // Cross-decode testing is not practical without exhaustive per-version field alignment.
+    // ==================== CameraAimAssistPresetsPacket ====================
 
-    //@ParameterizedTest(name = "StartGamePacket v{0}")
-    //@MethodSource("allVersions")
-    void _skipped_testStartGamePacket(int protocolVersion) {
+    @ParameterizedTest(name = "CameraAimAssistPresetsPacket v{0} (latest)")
+    @MethodSource("versionsFrom924")
+    void testCameraAimAssistPresetsPacketLatest(int protocolVersion) {
+        var nukkitPacket = new CameraAimAssistPresetsPacket();
+        nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
+
+        var categoriesField = readField(nukkitPacket, "categories", java.util.List.class);
+
+        var categoryGroup = new cn.nukkit.network.protocol.types.camera.CameraAimAssistCategories();
+        categoryGroup.setIdentifier("legacy_group");
+
+        var category = new cn.nukkit.network.protocol.types.camera.CameraAimAssistCategory();
+        category.setName("mobs");
+        category.getEntityPriorities().add(new cn.nukkit.network.protocol.types.camera.CameraAimAssistPriority("minecraft:zombie", 10));
+        category.getBlockPriorities().add(new cn.nukkit.network.protocol.types.camera.CameraAimAssistPriority("minecraft:chest", 5));
+        category.getBlockTagPriorities().add(new cn.nukkit.network.protocol.types.camera.CameraAimAssistPriority("minecraft:logs", 4));
+        category.getEntityTypeFamiliesPriorities().add(new cn.nukkit.network.protocol.types.camera.CameraAimAssistPriority("undead", 3));
+        category.setEntityDefaultPriorities(7);
+        category.setBlockDefaultPriorities(8);
+        categoryGroup.getCategories().add(category);
+        categoriesField.add(categoryGroup);
+
+        var presetsField = readField(nukkitPacket, "presets", java.util.List.class);
+        var preset = new cn.nukkit.network.protocol.types.camera.CameraAimAssistPresetDefinition();
+        preset.setIdentifier("default_preset");
+        preset.getBlockExclusionList().add("minecraft:barrel");
+        preset.getEntityExclusionList().add("minecraft:cow");
+        preset.getBlockTagExclusionList().add("leaves");
+        preset.getEntityTypeFamiliesExclusionList().add("aquatic");
+        preset.getLiquidTargetingList().add("water");
+        preset.getItemSettings().add(new cn.nukkit.network.protocol.types.camera.CameraAimAssistItemSettings("minecraft:bow", "mobs"));
+        preset.setDefaultItemSettings("mobs");
+        preset.setHandSettings("hands");
+        presetsField.add(preset);
+
+        nukkitPacket.setOperation(cn.nukkit.network.protocol.types.camera.CameraAimAssistOperation.ADD_TO_EXISTING);
+        nukkitPacket.encode();
+
+        var cbPacket = crossDecode(nukkitPacket,
+                org.cloudburstmc.protocol.bedrock.packet.CameraAimAssistPresetsPacket.class);
+
+        assertEquals(1, cbPacket.getCategoryDefinitions().size());
+        var cbCategory = cbPacket.getCategoryDefinitions().get(0);
+        assertEquals("mobs", cbCategory.getName());
+        assertEquals("minecraft:zombie", cbCategory.getEntityPriorities().get(0).getName());
+        assertEquals("minecraft:chest", cbCategory.getBlockPriorities().get(0).getName());
+        assertEquals("minecraft:logs", cbCategory.getBlockTagPriorities().get(0).getName());
+        assertEquals("undead", cbCategory.getEntityTypeFamiliesPriorities().get(0).getName());
+        assertEquals(7, cbCategory.getEntityDefaultPriorities());
+        assertEquals(8, cbCategory.getBlockDefaultPriorities());
+
+        assertEquals(1, cbPacket.getPresets().size());
+        var cbPreset = cbPacket.getPresets().get(0);
+        assertEquals("default_preset", cbPreset.getIdentifier());
+        assertEquals(java.util.List.of("minecraft:barrel"), cbPreset.getBlockExclusionList());
+        assertEquals(java.util.List.of("minecraft:cow"), cbPreset.getEntityExclusionList());
+        assertEquals(java.util.List.of("leaves"), cbPreset.getBlockTagExclusionList());
+        assertEquals(java.util.List.of("aquatic"), cbPreset.getEntityTypeFamiliesExclusionList());
+        assertEquals(java.util.List.of("water"), cbPreset.getLiquidTargetingList());
+        assertEquals("mobs", cbPreset.getDefaultItemSettings());
+        assertEquals("hands", cbPreset.getHandSettings());
+        assertEquals(org.cloudburstmc.protocol.bedrock.data.camera.CameraAimAssistOperation.ADD_TO_EXISTING, cbPacket.getOperation());
+    }
+
+    // ==================== StartGamePacket ====================
+    // Full cross-version StartGame coverage is still impractical, but the latest protocol
+    // branch can be regression-tested with a constrained payload.
+
+    @ParameterizedTest(name = "StartGamePacket v{0} (latest minimal)")
+    @MethodSource("versionsFrom924")
+    void testStartGamePacketLatest(int protocolVersion) {
         var nukkitPacket = new StartGamePacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.entityUniqueId = 1;
         nukkitPacket.entityRuntimeId = 1;
         nukkitPacket.playerGamemode = 0;
@@ -635,18 +725,22 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
         nukkitPacket.spawnY = 64;
         nukkitPacket.spawnZ = 0;
         nukkitPacket.gameRules = new GameRules();
-        nukkitPacket.levelId = "";
+        nukkitPacket.levelId = "level-1";
         nukkitPacket.worldName = "TestWorld";
         nukkitPacket.premiumWorldTemplateId = "";
-        nukkitPacket.currentTick = 0L;
+        nukkitPacket.currentTick = 123L;
         nukkitPacket.enchantmentSeed = 0;
-        nukkitPacket.multiplayerCorrelationId = "";
+        nukkitPacket.multiplayerCorrelationId = "corr-1";
         nukkitPacket.vanillaVersion = cn.nukkit.utils.Utils.getVersionByProtocol(protocolVersion);
         nukkitPacket.authoritativeMovementMode = AuthoritativeMovementMode.SERVER;
         nukkitPacket.rewindHistorySize = 40;
         nukkitPacket.blockDefinitions = java.util.Collections.emptyList();
         nukkitPacket.playerPropertyData = new CompoundTag("");
         nukkitPacket.networkPermissions = NetworkPermissions.DEFAULT;
+        nukkitPacket.serverId = "server-1";
+        nukkitPacket.worldId = "world-1";
+        nukkitPacket.scenarioId = "scenario-1";
+        nukkitPacket.ownerIdentifier = "owner-1";
         nukkitPacket.encode();
 
         var cbPacket = crossDecode(nukkitPacket,
@@ -655,6 +749,12 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
         assertEquals(1, cbPacket.getUniqueEntityId());
         assertEquals(1, cbPacket.getRuntimeEntityId());
         assertEquals("TestWorld", cbPacket.getLevelName());
+        assertEquals("level-1", cbPacket.getLevelId());
+        assertEquals(123L, cbPacket.getCurrentTick());
+        assertEquals("server-1", cbPacket.getServerId());
+        assertEquals("world-1", cbPacket.getWorldId());
+        assertEquals("scenario-1", cbPacket.getScenarioId());
+        assertEquals("owner-1", cbPacket.getOwnerId());
     }
 
     // ==================== ClientboundMapItemDataPacket ====================
@@ -668,6 +768,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testClientboundMapItemDataPacketScaleOnly(int protocolVersion) {
         var nukkitPacket = new ClientboundMapItemDataPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.mapId = 1;
         nukkitPacket.dimensionId = 0;
         nukkitPacket.isLocked = false;
@@ -694,6 +795,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testClientboundMapItemDataPacketDecorations(int protocolVersion) {
         var nukkitPacket = new ClientboundMapItemDataPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.mapId = 2;
         nukkitPacket.dimensionId = 0;
         nukkitPacket.isLocked = true;
@@ -735,6 +837,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testCameraInstructionPacketClear(int protocolVersion) {
         var nukkitPacket = new CameraInstructionPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.setClear(OptionalBoolean.of(true));
         nukkitPacket.encode();
 
@@ -750,6 +853,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testCameraInstructionPacketFade(int protocolVersion) {
         var nukkitPacket = new CameraInstructionPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.setFadeInstruction(new CameraFadeInstruction(
                 new CameraFadeInstruction.TimeData(1.0f, 2.0f, 1.0f),
                 new Color(255, 0, 0)
@@ -773,6 +877,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testDebugDrawerPacketEmpty(int protocolVersion) {
         var nukkitPacket = new DebugDrawerPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         // empty shapes list
         nukkitPacket.encode();
 
@@ -787,6 +892,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testDebugDrawerPacketTextShape(int protocolVersion) {
         var nukkitPacket = new DebugDrawerPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         var textShape = new cn.nukkit.network.protocol.types.debugshape.DebugText(
                 1L, 0,
                 new Vector3f(10.0f, 20.0f, 30.0f),
@@ -819,6 +925,7 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     void testAvailableCommandsPacketEmpty(int protocolVersion) {
         var nukkitPacket = new AvailableCommandsPacket();
         nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.commands = java.util.Collections.emptyMap();
         nukkitPacket.encode();
 
@@ -832,4 +939,185 @@ public class ComplexPacketRegressionTest extends AbstractPacketRegressionTest {
     // Skipped: Nukkit writes hasNetworkIds as a separate boolean for all protocol >= 407,
     // but CB Protocol v407 serializer embeds network ID handling inside readInventoryActions().
     // The encoding formats are incompatible for cross-decode testing.
+
+    @SuppressWarnings("unchecked")
+    private static <T> T readField(Object instance, String fieldName, Class<T> type) {
+        try {
+            var field = instance.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return (T) field.get(instance);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to read field " + fieldName, e);
+        }
+    }
+
+    // ==================== v944 Packets ====================
+
+    static Stream<Arguments> versionsFrom944() {
+        return filteredVersions(ProtocolInfo.v1_26_10);
+    }
+
+    // ==================== LocatorBarPacket ====================
+
+    @ParameterizedTest(name = "LocatorBarPacket v{0}")
+    @MethodSource("versionsFrom944")
+    void testLocatorBarPacket(int protocolVersion) {
+        var nukkitPacket = new cn.nukkit.network.protocol.LocatorBarPacket();
+        nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
+
+        var waypoint = new cn.nukkit.network.protocol.types.LocatorBarWaypoint();
+        waypoint.updateFlag = 1;
+        waypoint.visible = true;
+        waypoint.worldPosition = new cn.nukkit.network.protocol.types.LocatorBarWaypoint.WorldPosition(
+                new Vector3f(100.5f, 64.0f, 200.5f), 0);
+        waypoint.textureId = 5;
+        waypoint.color = Color.RED;
+        waypoint.clientPositionAuthority = false;
+        waypoint.entityUniqueId = null;
+
+        nukkitPacket.waypoints.add(new cn.nukkit.network.protocol.LocatorBarPacket.Payload(
+                cn.nukkit.network.protocol.LocatorBarPacket.Action.ADD,
+                UUID.fromString("12345678-1234-1234-1234-123456789abc"),
+                waypoint));
+        nukkitPacket.encode();
+
+        var cbPacket = crossDecode(nukkitPacket,
+                org.cloudburstmc.protocol.bedrock.packet.LocatorBarPacket.class);
+
+        assertEquals(1, cbPacket.getWaypoints().size());
+        var cbWaypoint = cbPacket.getWaypoints().get(0);
+        assertEquals(org.cloudburstmc.protocol.bedrock.packet.LocatorBarPacket.Action.ADD, cbWaypoint.getActionFlag());
+        assertEquals(UUID.fromString("12345678-1234-1234-1234-123456789abc"), cbWaypoint.getGroupHandle());
+        assertEquals(1, cbWaypoint.getWaypoint().getUpdateFlag());
+        assertTrue(cbWaypoint.getWaypoint().getVisible());
+        assertEquals(100.5f, cbWaypoint.getWaypoint().getWorldPosition().getPosition().getX(), 0.001f);
+        assertEquals(64.0f, cbWaypoint.getWaypoint().getWorldPosition().getPosition().getY(), 0.001f);
+        assertEquals(200.5f, cbWaypoint.getWaypoint().getWorldPosition().getPosition().getZ(), 0.001f);
+    }
+
+    @ParameterizedTest(name = "LocatorBarPacket REMOVE v{0}")
+    @MethodSource("versionsFrom944")
+    void testLocatorBarPacketRemove(int protocolVersion) {
+        var nukkitPacket = new cn.nukkit.network.protocol.LocatorBarPacket();
+        nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
+
+        var waypoint = new cn.nukkit.network.protocol.types.LocatorBarWaypoint();
+        waypoint.updateFlag = 0;
+
+        nukkitPacket.waypoints.add(new cn.nukkit.network.protocol.LocatorBarPacket.Payload(
+                cn.nukkit.network.protocol.LocatorBarPacket.Action.REMOVE,
+                UUID.fromString("00000000-0000-0000-0000-000000000001"),
+                waypoint));
+        nukkitPacket.encode();
+
+        var cbPacket = crossDecode(nukkitPacket,
+                org.cloudburstmc.protocol.bedrock.packet.LocatorBarPacket.class);
+
+        assertEquals(1, cbPacket.getWaypoints().size());
+        assertEquals(org.cloudburstmc.protocol.bedrock.packet.LocatorBarPacket.Action.REMOVE,
+                cbPacket.getWaypoints().get(0).getActionFlag());
+    }
+
+    // ==================== SyncWorldClocksPacket ====================
+
+    @ParameterizedTest(name = "SyncWorldClocksPacket SyncState v{0}")
+    @MethodSource("versionsFrom944")
+    void testSyncWorldClocksPacketSyncState(int protocolVersion) {
+        var nukkitPacket = new cn.nukkit.network.protocol.SyncWorldClocksPacket();
+        nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
+
+        java.util.List<cn.nukkit.network.protocol.types.clock.SyncWorldClockStateData> clockData = new java.util.ArrayList<>();
+        clockData.add(new cn.nukkit.network.protocol.types.clock.SyncWorldClockStateData(1, 6000, false));
+        clockData.add(new cn.nukkit.network.protocol.types.clock.SyncWorldClockStateData(2, 12000, true));
+
+        nukkitPacket.data = new cn.nukkit.network.protocol.types.clock.SyncStateData(clockData);
+        nukkitPacket.encode();
+
+        var cbPacket = crossDecode(nukkitPacket,
+                org.cloudburstmc.protocol.bedrock.packet.SyncWorldClocksPacket.class);
+
+        assertNotNull(cbPacket.getData());
+        assertTrue(cbPacket.getData() instanceof org.cloudburstmc.protocol.bedrock.data.clock.SyncStateData);
+        var syncData = (org.cloudburstmc.protocol.bedrock.data.clock.SyncStateData) cbPacket.getData();
+        assertEquals(2, syncData.getClockData().size());
+        assertEquals(1, syncData.getClockData().get(0).getClockId());
+        assertEquals(6000, syncData.getClockData().get(0).getTime());
+        assertFalse(syncData.getClockData().get(0).isPaused());
+        assertEquals(2, syncData.getClockData().get(1).getClockId());
+        assertEquals(12000, syncData.getClockData().get(1).getTime());
+        assertTrue(syncData.getClockData().get(1).isPaused());
+    }
+
+    // ==================== ClientboundAttributeLayerSyncPacket ====================
+
+    @ParameterizedTest(name = "ClientboundAttributeLayerSyncPacket UpdateLayers v{0}")
+    @MethodSource("versionsFrom944")
+    void testClientboundAttributeLayerSyncPacketUpdateLayers(int protocolVersion) {
+        var nukkitPacket = new cn.nukkit.network.protocol.ClientboundAttributeLayerSyncPacket();
+        nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
+
+        var settings = new cn.nukkit.network.protocol.types.attributelayer.AttributeLayerSettings(
+                1,
+                new cn.nukkit.network.protocol.types.attributelayer.AttributeLayerSettings.FloatWeight(0.5f),
+                true,
+                false
+        );
+
+        var boolAttr = new cn.nukkit.network.protocol.types.attributelayer.BoolAttributeData(
+                true,
+                cn.nukkit.network.protocol.types.attributelayer.BoolAttributeData.Operation.OVERRIDE
+        );
+
+        var envAttr = new cn.nukkit.network.protocol.types.attributelayer.EnvironmentAttributeData(
+                "test_attribute",
+                null,
+                boolAttr,
+                null,
+                0,
+                100,
+                cn.nukkit.network.protocol.types.attributelayer.EnvironmentAttributeData.CameraEase.LINEAR
+        );
+
+        var layerData = new cn.nukkit.network.protocol.types.attributelayer.AttributeLayerData(
+                "test_layer",
+                0,
+                settings,
+                java.util.Collections.singletonList(envAttr)
+        );
+
+        nukkitPacket.data = new cn.nukkit.network.protocol.types.attributelayer.UpdateAttributeLayersData(
+                java.util.Collections.singletonList(layerData));
+        nukkitPacket.encode();
+
+        var cbPacket = crossDecode(nukkitPacket,
+                org.cloudburstmc.protocol.bedrock.packet.ClientboundAttributeLayerSyncPacket.class);
+
+        assertNotNull(cbPacket.getData());
+        assertTrue(cbPacket.getData() instanceof org.cloudburstmc.protocol.bedrock.data.attributelayer.UpdateAttributeLayersData);
+    }
+
+    @ParameterizedTest(name = "ClientboundAttributeLayerSyncPacket RemoveEnvAttrs v{0}")
+    @MethodSource("versionsFrom944")
+    void testClientboundAttributeLayerSyncPacketRemoveEnvAttrs(int protocolVersion) {
+        var nukkitPacket = new cn.nukkit.network.protocol.ClientboundAttributeLayerSyncPacket();
+        nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
+
+        nukkitPacket.data = new cn.nukkit.network.protocol.types.attributelayer.RemoveEnvironmentAttributesData(
+                "test_layer",
+                0,
+                java.util.Arrays.asList("attr1", "attr2")
+        );
+        nukkitPacket.encode();
+
+        var cbPacket = crossDecode(nukkitPacket,
+                org.cloudburstmc.protocol.bedrock.packet.ClientboundAttributeLayerSyncPacket.class);
+
+        assertNotNull(cbPacket.getData());
+        assertTrue(cbPacket.getData() instanceof org.cloudburstmc.protocol.bedrock.data.attributelayer.RemoveEnvironmentAttributesData);
+    }
 }

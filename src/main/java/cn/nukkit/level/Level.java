@@ -1130,8 +1130,10 @@ public class Level implements ChunkManager, Metadatable {
         while (updateBlockEntities.hasNext()) {
             BlockEntity be = updateBlockEntities.next();
             if (!be.isValid()) {
+                be.scheduledForBlockEntityUpdate.set(false);
                 updateBlockEntities.remove();
             } else if (!be.onUpdate()) {
+                be.scheduledForBlockEntityUpdate.set(false);
                 updateBlockEntities.remove();
             }
         }
@@ -3975,7 +3977,8 @@ public class Level implements ChunkManager, Metadatable {
     public void scheduleBlockEntityUpdate(BlockEntity entity) {
         Preconditions.checkNotNull(entity, "entity");
         Preconditions.checkArgument(entity.getLevel() == this, "BlockEntity is not in this level");
-        if (!updateBlockEntities.contains(entity)) {
+        if (entity.scheduledForBlockEntityUpdate.compareAndSet(false, true)) {
+            entity.setDirty();
             updateBlockEntities.add(entity);
         }
     }
@@ -3987,6 +3990,7 @@ public class Level implements ChunkManager, Metadatable {
         entity.close();
 
         blockEntities.remove(entity.getId());
+        entity.scheduledForBlockEntityUpdate.set(false);
         updateBlockEntities.remove(entity);
     }
 
@@ -4103,15 +4107,7 @@ public class Level implements ChunkManager, Metadatable {
             LevelProvider levelProvider = this.requireProvider();
             if (chunk != null) {
                 if (trySave && this.autoSave) {
-                    int entities = 0;
-                    for (Entity e : chunk.getEntities().values()) {
-                        if (e instanceof Player) {
-                            continue;
-                        }
-                        ++entities;
-                    }
-
-                    if (chunk.hasChanged() || !chunk.getBlockEntities().isEmpty() || entities > 0) {
+                    if (chunk.hasChanged()) {
                         levelProvider.setChunk(x, z, chunk);
                         levelProvider.saveChunk(x, z);
                     }
@@ -5261,7 +5257,9 @@ public class Level implements ChunkManager, Metadatable {
             }
             return GameVersion.V1_20_50_NETEASE;
         }
-        if (protocol >= GameVersion.V1_21_110_26.getProtocol()) {
+        if (protocol >= GameVersion.V1_26_10.getProtocol()) {
+            return GameVersion.V1_26_10;
+        } else if (protocol >= GameVersion.V1_21_110_26.getProtocol()) {
             return GameVersion.V1_21_110;
         } else if (protocol >= GameVersion.V1_21_100.getProtocol()) {
             return GameVersion.V1_21_100;
@@ -5410,7 +5408,9 @@ public class Level implements ChunkManager, Metadatable {
         if (chunk == ProtocolInfo.v1_21_90)
             if (player >= ProtocolInfo.v1_21_90) if (player <= ProtocolInfo.v1_21_93) return true;
         if (chunk == GameVersion.V1_21_100.getProtocol()) if (player == GameVersion.V1_21_100.getProtocol()) return true;
-        if (chunk == GameVersion.V1_21_110.getProtocol()) if (player >= GameVersion.V1_21_110_26.getProtocol()) return true;
+        if (chunk == GameVersion.V1_21_110.getProtocol())
+            if (player >= GameVersion.V1_21_110_26.getProtocol()) if (player <= GameVersion.V1_26_0.getProtocol()) return true;
+        if (chunk == GameVersion.V1_26_10.getProtocol())  if (player >= GameVersion.V1_26_10.getProtocol()) return true;
         return false; //TODO Multiversion  Remember to update when block palette changes
     }
 

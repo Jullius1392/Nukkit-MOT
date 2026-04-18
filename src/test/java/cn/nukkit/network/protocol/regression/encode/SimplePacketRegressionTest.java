@@ -1,8 +1,15 @@
 package cn.nukkit.network.protocol.regression.encode;
 
+import cn.nukkit.math.BlockVector3;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.protocol.ProtocolInfo;
 import cn.nukkit.network.protocol.regression.AbstractPacketRegressionTest;
+import cn.nukkit.network.protocol.regression.PacketBridgeUtil;
+import cn.nukkit.network.protocol.regression.ProtocolCodecMapping;
+import cn.nukkit.network.protocol.types.BlockChangeEntry;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import org.cloudburstmc.math.vector.Vector3i;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -65,6 +72,10 @@ public class SimplePacketRegressionTest extends AbstractPacketRegressionTest {
 
     static Stream<Arguments> versionsFrom465() {
         return filteredVersions(465);
+    }
+
+    static Stream<Arguments> versionsFrom465To944Exclusive() {
+        return filteredVersionsRange(465, ProtocolInfo.v1_26_10);
     }
 
     static Stream<Arguments> versionsPre553() {
@@ -1299,22 +1310,100 @@ public class SimplePacketRegressionTest extends AbstractPacketRegressionTest {
     // ==================== UpdateSubChunkBlocksPacket ====================
 
     @ParameterizedTest(name = "UpdateSubChunkBlocksPacket v{0}")
-    @MethodSource("versionsFrom465")
-    void testUpdateSubChunkBlocksPacket(int protocolVersion) {
+    @MethodSource("versionsFrom465To944Exclusive")
+    void testUpdateSubChunkBlocksPacketLegacyProtocols(int protocolVersion) {
         var nukkitPacket = new cn.nukkit.network.protocol.UpdateSubChunkBlocksPacket();
-        nukkitPacket.chunkX = 100;
-        nukkitPacket.chunkY = 64;
-        nukkitPacket.chunkZ = 200;
+        nukkitPacket.position = new BlockVector3(100, 64, 200);
+        nukkitPacket.standardBlocks.add(new BlockChangeEntry(
+                new BlockVector3(101, 64, 201), 1234, 3, 456L, BlockChangeEntry.MessageType.CREATE));
+        nukkitPacket.extraBlocks.add(new BlockChangeEntry(
+                new BlockVector3(102, 65, 202), 4321, 5, 789L, BlockChangeEntry.MessageType.DESTROY));
         nukkitPacket.protocol = protocolVersion;
         nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
         nukkitPacket.encode();
 
-        var cbPacket = crossDecode(nukkitPacket,
-                org.cloudburstmc.protocol.bedrock.packet.UpdateSubChunkBlocksPacket.class);
+        assertPacketBytesMatchCbHelper(nukkitPacket);
+    }
 
-        assertEquals(100, cbPacket.getChunkX());
-        assertEquals(64, cbPacket.getChunkY());
-        assertEquals(200, cbPacket.getChunkZ());
+    @ParameterizedTest(name = "UpdateSubChunkBlocksPacket v{0} (signed Y)")
+    @MethodSource("versionsFrom944")
+    void testUpdateSubChunkBlocksPacketSignedYProtocols(int protocolVersion) {
+        var nukkitPacket = new cn.nukkit.network.protocol.UpdateSubChunkBlocksPacket();
+        nukkitPacket.position = new BlockVector3(100, -16, 200);
+        nukkitPacket.standardBlocks.add(new BlockChangeEntry(
+                new BlockVector3(101, -16, 201), 1234, 3, 456L, BlockChangeEntry.MessageType.CREATE));
+        nukkitPacket.extraBlocks.add(new BlockChangeEntry(
+                new BlockVector3(102, -15, 202), 4321, 5, 789L, BlockChangeEntry.MessageType.DESTROY));
+        nukkitPacket.protocol = protocolVersion;
+        nukkitPacket.gameVersion = cn.nukkit.GameVersion.byProtocol(protocolVersion, false);
+        nukkitPacket.encode();
+
+        assertPacketBytesMatchCbHelper(nukkitPacket);
+    }
+
+    private void assertPacketBytesMatchCbHelper(cn.nukkit.network.protocol.UpdateSubChunkBlocksPacket nukkitPacket) {
+        var codec = ProtocolCodecMapping.getCodec(nukkitPacket.protocol);
+        var helper = codec.createHelper();
+
+        ByteBuf actual = PacketBridgeUtil.nukkitPacketToByteBuf(nukkitPacket);
+        ByteBuf expected = Unpooled.buffer();
+        try {
+            writeExpectedUpdateSubChunkBlocksPayload(expected, helper, nukkitPacket);
+
+            byte[] actualBytes = new byte[actual.readableBytes()];
+            actual.readBytes(actualBytes);
+
+            byte[] expectedBytes = new byte[expected.readableBytes()];
+            expected.readBytes(expectedBytes);
+
+            assertArrayEquals(expectedBytes, actualBytes);
+        } finally {
+            actual.release();
+            expected.release();
+        }
+    }
+
+    private void writeExpectedUpdateSubChunkBlocksPayload(ByteBuf buffer,
+                                                          org.cloudburstmc.protocol.bedrock.codec.BedrockCodecHelper helper,
+                                                          cn.nukkit.network.protocol.UpdateSubChunkBlocksPacket packet) {
+        helper.writeBlockPosition(buffer, Vector3i.from(packet.position.x, packet.position.y, packet.position.z));
+        writeExpectedBlockChanges(buffer, helper, packet.standardBlocks);
+        writeExpectedBlockChanges(buffer, helper, packet.extraBlocks);
+    }
+
+    private void writeExpectedBlockChanges(ByteBuf buffer,
+                                           org.cloudburstmc.protocol.bedrock.codec.BedrockCodecHelper helper,
+                                           java.util.List<BlockChangeEntry> entries) {
+        writeUnsignedVarInt(buffer, entries.size());
+        for (BlockChangeEntry entry : entries) {
+            helper.writeBlockPosition(buffer, Vector3i.from(entry.blockPos().x, entry.blockPos().y, entry.blockPos().z));
+            writeUnsignedVarInt(buffer, entry.runtimeID());
+            writeUnsignedVarInt(buffer, entry.updateFlags());
+            writeUnsignedVarLong(buffer, entry.messageEntityID());
+            writeUnsignedVarInt(buffer, entry.messageType().ordinal());
+        }
+    }
+
+    private void writeUnsignedVarInt(ByteBuf buffer, long value) {
+        do {
+            int temp = (int) (value & 0x7f);
+            value >>>= 7;
+            if (value != 0) {
+                temp |= 0x80;
+            }
+            buffer.writeByte(temp);
+        } while (value != 0);
+    }
+
+    private void writeUnsignedVarLong(ByteBuf buffer, long value) {
+        do {
+            int temp = (int) (value & 0x7f);
+            value >>>= 7;
+            if (value != 0) {
+                temp |= 0x80;
+            }
+            buffer.writeByte(temp);
+        } while (value != 0);
     }
 
     // ==================== ItemStackResponsePacket ====================

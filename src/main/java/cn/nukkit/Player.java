@@ -5825,37 +5825,59 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
 
             this.connected = false;
             PlayerQuitEvent ev = null;
-            if (this.username != null && !this.username.isEmpty()) {
-                this.server.getPluginManager().callEvent(ev = new PlayerQuitEvent(this, message, true, reason));
-                if (this.loggedIn && ev.getAutoSave()) {
-                    this.save();
+            try {
+                if (this.username != null && !this.username.isEmpty()) {
+                    try {
+                        this.server.getPluginManager().callEvent(ev = new PlayerQuitEvent(this, message, true, reason));
+                    } catch (Throwable t) {
+                        this.server.getLogger().logException(t);
+                    }
+                    if (this.loggedIn && (ev == null || ev.getAutoSave())) {
+                        try {
+                            this.save();
+                        } catch (Throwable t) {
+                            this.server.getLogger().logException(t);
+                        }
+                    }
+                    if (this.fishing != null) {
+                        try {
+                            this.stopFishing(false);
+                        } catch (Throwable t) {
+                            this.server.getLogger().logException(t);
+                        }
+                    }
                 }
-                if (this.fishing != null) {
-                    this.stopFishing(false);
+
+                for (Player player : new ArrayList<>(this.server.playerList.values())) {
+                    if (!player.canSee(this)) {
+                        player.showPlayer(this);
+                    }
                 }
-            }
 
-            for (Player player : new ArrayList<>(this.server.playerList.values())) {
-                if (!player.canSee(this)) {
-                    player.showPlayer(this);
+                this.hiddenPlayers.clear();
+
+                try {
+                    this.removeAllWindows(true);
+                } catch (Throwable t) {
+                    this.server.getLogger().logException(t);
                 }
-            }
 
-            this.hiddenPlayers.clear();
+                DataDrivenScreen.removeActiveScreen(this);
 
-            this.removeAllWindows(true);
+                this.unloadChunks(false);
 
-            DataDrivenScreen.removeActiveScreen(this);
+                try {
+                    super.close();
+                } catch (Throwable t) {
+                    this.server.getLogger().logException(t);
+                }
+            } finally {
+                this.interfaz.close(this, notify ? reason : "");
 
-            this.unloadChunks(false);
-
-            super.close();
-
-            this.interfaz.close(this, notify ? reason : "");
-
-            if (this.loggedIn) {
-                this.server.removeOnlinePlayer(this);
-                this.loggedIn = false;
+                if (this.loggedIn) {
+                    this.server.removeOnlinePlayer(this);
+                    this.loggedIn = false;
+                }
             }
 
             if (ev != null && !Objects.equals(this.username, "") && this.spawned && !Objects.equals(ev.getQuitMessage().toString(), "")) {
@@ -7411,10 +7433,21 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
      * @param port     target server port
      */
     public void transfer(String hostName, int port) {
+        if (!this.connected || this.closed) {
+            return;
+        }
         TransferPacket pk = new TransferPacket();
         pk.address = hostName;
         pk.port = port;
-        this.dataPacket(pk);
+        if (!this.dataPacket(pk)) {
+            return;
+        }
+
+        this.server.getScheduler().scheduleDelayedTask(InternalPlugin.INSTANCE, () -> {
+            if (this.connected && !this.closed) {
+                this.close("", "transferred", false);
+            }
+        }, 100);
     }
 
     /**

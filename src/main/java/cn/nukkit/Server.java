@@ -2619,6 +2619,7 @@ public class Server {
                 it.configure(opt -> {
                     opt.configurer(new YamlSnakeYamlConfigurer());
                     opt.bindFile(configFile);
+                    opt.removeOrphans(true);
                 });
                 if (firstLoad) {
                     it.saveDefaults();

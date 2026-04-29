@@ -53,6 +53,30 @@ public interface ItemNamespaceId {
     String BLUE_EGG = "minecraft:blue_egg";
     String BROWN_EGG = "minecraft:brown_egg";
 
+    String TORCHFLOWER_SEEDS = "minecraft:torchflower_seeds";
+    String PITCHER_POD = "minecraft:pitcher_pod";
+    String ARMADILLO_SCUTE = "minecraft:armadillo_scute";
+    String WOLF_ARMOR = "minecraft:wolf_armor";
+    String RESIN_BRICK = "minecraft:resin_brick";
+    String COPPER_HORSE_ARMOR = "minecraft:copper_horse_armor";
+    String NETHERITE_HORSE_ARMOR = "minecraft:netherite_horse_armor";
+    String MUSIC_DISC_TEARS = "minecraft:music_disc_tears";
+    String MUSIC_DISC_LAVA_CHICKEN = "minecraft:music_disc_lava_chicken";
+
+    String WOODEN_SPEAR = "minecraft:wooden_spear";
+    String STONE_SPEAR = "minecraft:stone_spear";
+    String IRON_SPEAR = "minecraft:iron_spear";
+    String GOLDEN_SPEAR = "minecraft:golden_spear";
+    String DIAMOND_SPEAR = "minecraft:diamond_spear";
+    String COPPER_SPEAR = "minecraft:copper_spear";
+    String NETHERITE_SPEAR = "minecraft:netherite_spear";
+
+    String COPPER_NAUTILUS_ARMOR = "minecraft:copper_nautilus_armor";
+    String IRON_NAUTILUS_ARMOR = "minecraft:iron_nautilus_armor";
+    String GOLDEN_NAUTILUS_ARMOR = "minecraft:golden_nautilus_armor";
+    String DIAMOND_NAUTILUS_ARMOR = "minecraft:diamond_nautilus_armor";
+    String NETHERITE_NAUTILUS_ARMOR = "minecraft:netherite_nautilus_armor";
+
     String COPPER_SWORD = "minecraft:copper_sword";
     String COPPER_AXE = "minecraft:copper_axe";
     String COPPER_PICKAXE = "minecraft:copper_pickaxe";

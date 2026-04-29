@@ -52,6 +52,7 @@ jobs:
     # 推送到minebbs    
     - name: Update MineBBS infomation
       uses: fjogeleit/http-request-action@v1
+      continue-on-error: true
       if: success() && github.event_name == 'push' && github.repository == 'MemoriesOfTime/Nukkit-MOT' && contains(github.ref_name, 'master')
       with:
         url: 'https://api.minebbs.com/api/openapi/v1/resources/5934/update'

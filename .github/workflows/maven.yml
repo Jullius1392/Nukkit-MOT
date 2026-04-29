@@ -33,7 +33,7 @@ jobs:
     # 生成信息
     - name: Get Short SHA
       id: vars
-      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      run: echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
     - name: Format ChangeLog
       id: get-changelog
       if: success() && github.event_name == 'push' && github.repository == 'MemoriesOfTime/Nukkit-MOT' && contains(github.ref_name, 'master')
@@ -44,11 +44,8 @@ jobs:
         printf 'changelog=%s\n' "$escaped" >> "$GITHUB_OUTPUT"
     - name: Get Time
       id: time
-      uses: nanzm/get-time-action@v1.1
       if: github.repository == 'MemoriesOfTime/Nukkit-MOT' && contains(github.ref_name, 'master')
-      with:
-        timeZone: 8
-        format: 'YYYY/MM/DD-HH:mm:ss'
+      run: printf 'time=%s\n' "$(TZ=Asia/Shanghai date '+%Y/%m/%d-%H:%M:%S')" >> "$GITHUB_OUTPUT"
     # 推送到minebbs    
     - name: Update MineBBS infomation
       uses: fjogeleit/http-request-action@v1

@@ -4145,14 +4145,18 @@ public class Level implements ChunkManager, Metadatable {
         int x = (int) pos.x & 0x0f;
         int z = (int) pos.z & 0x0f;
         if (chunk != null && chunk.isGenerated()) {
-            int y = NukkitMath.clamp((int) pos.y, this.getMinBlockY() + 1, this.getMaxBlockY() - 1);
+            int minY = this.getMinBlockY();
+            int maxY = this.getMaxBlockY();
+            int y = NukkitMath.clamp((int) pos.y, minY + 1, maxY - 1);
+            boolean foundGround = false;
             boolean wasAir = chunk.getBlockId(x, y - 1, z) == 0;
-            for (; y > 0; --y) {
+            for (; y > minY; --y) {
                 int[] b = chunk.getBlockState(x, y, z);
                 Block block = Block.get(b[0], b[1]);
                 if (this.isFullBlock(block)) {
                     if (wasAir) {
                         y++;
+                        foundGround = true;
                         break;
                     }
                 } else {
@@ -4160,21 +4164,32 @@ public class Level implements ChunkManager, Metadatable {
                 }
             }
 
-            for (; y >= 0 && y < this.getMaxBlockY(); y++) {
-                int[] b = chunk.getBlockState(x, y + 1, z);
+            if (!foundGround && y == minY) {
+                int[] b = chunk.getBlockState(x, y, z);
                 Block block = Block.get(b[0], b[1]);
-                if (!this.isFullBlock(block)) {
-                    b = chunk.getBlockState(x, y, z);
-                    block = Block.get(b[0], b[1]);
-                    if (!this.isFullBlock(block)) {
-                        return new Position(pos.x + 0.5, pos.y + 0.1, pos.z + 0.5, this);
-                    }
-                } else {
-                    ++y;
+                if (this.isFullBlock(block)) {
+                    y++;
+                    foundGround = true;
                 }
             }
 
-            pos.y = y;
+            if (foundGround) {
+                for (; y >= minY && y < maxY; y++) {
+                    int[] b = chunk.getBlockState(x, y + 1, z);
+                    Block block = Block.get(b[0], b[1]);
+                    if (!this.isFullBlock(block)) {
+                        b = chunk.getBlockState(x, y, z);
+                        block = Block.get(b[0], b[1]);
+                        if (!this.isFullBlock(block)) {
+                            return new Position(pos.x + 0.5, y + 0.51, pos.z + 0.5, this);
+                        }
+                    } else {
+                        ++y;
+                    }
+                }
+
+                pos.y = y;
+            }
         }
 
         return new Position(pos.x + 0.5, pos.y + 0.1, pos.z + 0.5, this);

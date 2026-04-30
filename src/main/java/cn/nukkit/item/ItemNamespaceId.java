@@ -11,7 +11,11 @@ public interface ItemNamespaceId {
     String RECOVERY_COMPASS = "minecraft:recovery_compass";
 
     String MANGROVE_DOOR = "minecraft:mangrove_door";
+    String BAMBOO_DOOR_NAMESPACE_ID = "minecraft:bamboo_door";
     String CHERRY_DOOR = "minecraft:cherry_door";
+
+    String CHISELED_BOOKSHELF_NAMESPACE_ID = "minecraft:chiseled_bookshelf";
+    String CRAFTER_NAMESPACE_ID = "minecraft:crafter";
 
     String NETHERITE_UPGRADE_SMITHING_TEMPLATE = "minecraft:netherite_upgrade_smithing_template";
     String SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE = "minecraft:sentry_armor_trim_smithing_template";

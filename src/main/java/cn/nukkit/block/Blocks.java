@@ -791,14 +791,34 @@ public class Blocks {
         list[PALE_OAK_SAPLING] = BlockSaplingPaleOak.class; //1261
         list[PALE_OAK_LEAVES] = BlockLeavesPaleOak.class; //1262
 
+        list[RESIN_CLUMP] = BlockResinClump.class; //1277
         list[BUSH] = BlockBush.class; //1278
         list[WILDFLOWERS] = BlockWildflowers.class; //1279
         list[FIREFLY_BUSH] = BlockFireflyBush.class; //1280
         list[LEAF_LITTER] = BlockLeafLitter.class; //1281
+        list[DRIED_GHAST] = BlockDriedGhast.class; //1282
 
         list[SHORT_DRY_GRASS] = BlockShortDryGrass.class; //1283
         list[TALL_DRY_GRASS] = BlockTallDryGrass.class; //1284
         list[CACTUS_FLOWER] = BlockCactusFlower.class; //1285
+
+        list[COPPER_BARS] = BlockCopperBars.class; //1321
+        list[EXPOSED_COPPER_BARS] = BlockCopperBarsExposed.class; //1322
+        list[WEATHERED_COPPER_BARS] = BlockCopperBarsWeathered.class; //1323
+        list[OXIDIZED_COPPER_BARS] = BlockCopperBarsOxidized.class; //1324
+        list[WAXED_COPPER_BARS] = BlockCopperBarsWaxed.class; //1325
+        list[WAXED_EXPOSED_COPPER_BARS] = BlockCopperBarsExposedWaxed.class; //1326
+        list[WAXED_WEATHERED_COPPER_BARS] = BlockCopperBarsWeatheredWaxed.class; //1327
+        list[WAXED_OXIDIZED_COPPER_BARS] = BlockCopperBarsOxidizedWaxed.class; //1328
+        list[COPPER_CHAIN] = BlockCopperChain.class; //1329
+        list[EXPOSED_COPPER_CHAIN] = BlockCopperChainExposed.class; //1330
+        list[WEATHERED_COPPER_CHAIN] = BlockCopperChainWeathered.class; //1331
+        list[OXIDIZED_COPPER_CHAIN] = BlockCopperChainOxidized.class; //1332
+        list[WAXED_COPPER_CHAIN] = BlockCopperChainWaxed.class; //1333
+        list[WAXED_EXPOSED_COPPER_CHAIN] = BlockCopperChainExposedWaxed.class; //1334
+        list[WAXED_WEATHERED_COPPER_CHAIN] = BlockCopperChainWeatheredWaxed.class; //1335
+        list[WAXED_OXIDIZED_COPPER_CHAIN] = BlockCopperChainOxidizedWaxed.class; //1336
+        list[COPPER_TORCH] = BlockCopperTorch.class; //1337
     }
 
     static void init() {

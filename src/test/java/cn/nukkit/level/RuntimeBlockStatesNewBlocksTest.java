@@ -75,6 +75,16 @@ class RuntimeBlockStatesNewBlocksTest {
         if (netease || version >= 630) {
             expected.put("minecraft:crafter", 48);
         }
+        if (!netease && version >= 844) {
+            expected.put("minecraft:copper_lantern", 2);
+            expected.put("minecraft:exposed_copper_lantern", 2);
+            expected.put("minecraft:weathered_copper_lantern", 2);
+            expected.put("minecraft:oxidized_copper_lantern", 2);
+            expected.put("minecraft:waxed_copper_lantern", 2);
+            expected.put("minecraft:waxed_exposed_copper_lantern", 2);
+            expected.put("minecraft:waxed_weathered_copper_lantern", 2);
+            expected.put("minecraft:waxed_oxidized_copper_lantern", 2);
+        }
         return expected;
     }
 

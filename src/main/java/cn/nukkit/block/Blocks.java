@@ -819,6 +819,14 @@ public class Blocks {
         list[WAXED_WEATHERED_COPPER_CHAIN] = BlockCopperChainWeatheredWaxed.class; //1335
         list[WAXED_OXIDIZED_COPPER_CHAIN] = BlockCopperChainOxidizedWaxed.class; //1336
         list[COPPER_TORCH] = BlockCopperTorch.class; //1337
+        list[COPPER_LANTERN] = BlockCopperLantern.class; //1338
+        list[EXPOSED_COPPER_LANTERN] = BlockCopperLanternExposed.class; //1339
+        list[WEATHERED_COPPER_LANTERN] = BlockCopperLanternWeathered.class; //1340
+        list[OXIDIZED_COPPER_LANTERN] = BlockCopperLanternOxidized.class; //1341
+        list[WAXED_COPPER_LANTERN] = BlockCopperLanternWaxed.class; //1342
+        list[WAXED_EXPOSED_COPPER_LANTERN] = BlockCopperLanternExposedWaxed.class; //1343
+        list[WAXED_WEATHERED_COPPER_LANTERN] = BlockCopperLanternWeatheredWaxed.class; //1344
+        list[WAXED_OXIDIZED_COPPER_LANTERN] = BlockCopperLanternOxidizedWaxed.class; //1345
     }
 
     static void init() {

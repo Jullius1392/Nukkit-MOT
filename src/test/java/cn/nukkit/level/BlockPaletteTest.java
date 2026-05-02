@@ -65,10 +65,45 @@ class BlockPaletteTest {
         assertCrafterTriggeredStateMapped(new BlockPalette(GameVersion.V1_21_50_NETEASE));
     }
 
+    @Test
+    /**
+     * Verifies copper lantern ground and hanging states are mapped by the palettes that include them.
+     */
+    void copperLanternStatesHaveRuntimeMappings() {
+        assertCopperLanternStatesMapped(new BlockPalette(GameVersion.V1_21_110));
+        assertCopperLanternStatesMapped(new BlockPalette(GameVersion.V1_26_10));
+    }
+
     private static void assertCrafterTriggeredStateMapped(BlockPalette palette) {
         int defaultRuntimeId = palette.getRuntimeId(Block.CRAFTER, 0);
         int triggeredCraftingRuntimeId = palette.getRuntimeId(Block.CRAFTER, 0x37);
 
         Assertions.assertNotEquals(defaultRuntimeId, triggeredCraftingRuntimeId);
+    }
+
+    private static void assertCopperLanternStatesMapped(BlockPalette palette) {
+        int infoUpdateRuntimeId = palette.getRuntimeId(Block.INFO_UPDATE, 0);
+        int infoUpdateHashId = palette.getHashId(Block.INFO_UPDATE, 0);
+        int[] ids = {
+                Block.COPPER_LANTERN,
+                Block.EXPOSED_COPPER_LANTERN,
+                Block.WEATHERED_COPPER_LANTERN,
+                Block.OXIDIZED_COPPER_LANTERN,
+                Block.WAXED_COPPER_LANTERN,
+                Block.WAXED_EXPOSED_COPPER_LANTERN,
+                Block.WAXED_WEATHERED_COPPER_LANTERN,
+                Block.WAXED_OXIDIZED_COPPER_LANTERN
+        };
+
+        for (int id : ids) {
+            int groundRuntimeId = palette.getRuntimeId(id, 0);
+            int hangingRuntimeId = palette.getRuntimeId(id, 1);
+
+            Assertions.assertNotEquals(infoUpdateRuntimeId, groundRuntimeId);
+            Assertions.assertNotEquals(infoUpdateRuntimeId, hangingRuntimeId);
+            Assertions.assertNotEquals(groundRuntimeId, hangingRuntimeId);
+            Assertions.assertNotEquals(infoUpdateHashId, palette.getHashId(id, 0));
+            Assertions.assertNotEquals(infoUpdateHashId, palette.getHashId(id, 1));
+        }
     }
 }

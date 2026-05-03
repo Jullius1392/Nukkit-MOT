@@ -874,6 +874,18 @@ public interface BlockID {
     int TALL_DRY_GRASS = 1284;
     int CACTUS_FLOWER = 1285;
 
+    int OAK_SHELF = 1302;
+    int SPRUCE_SHELF = 1303;
+    int BIRCH_SHELF = 1304;
+    int JUNGLE_SHELF = 1305;
+    int ACACIA_SHELF = 1306;
+    int DARK_OAK_SHELF = 1307;
+    int MANGROVE_SHELF = 1308;
+    int CHERRY_SHELF = 1309;
+    int PALE_OAK_SHELF = 1310;
+    int BAMBOO_SHELF = 1311;
+    int CRIMSON_SHELF = 1312;
+    int WARPED_SHELF = 1313;
     int EXPOSED_LIGHTNING_ROD = 1314;
     int WEATHERED_LIGHTNING_ROD = 1315;
     int OXIDIZED_LIGHTNING_ROD = 1316;

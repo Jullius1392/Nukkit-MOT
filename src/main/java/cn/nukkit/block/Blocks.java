@@ -802,6 +802,18 @@ public class Blocks {
         list[TALL_DRY_GRASS] = BlockTallDryGrass.class; //1284
         list[CACTUS_FLOWER] = BlockCactusFlower.class; //1285
 
+        list[OAK_SHELF] = BlockShelfOak.class; //1302
+        list[SPRUCE_SHELF] = BlockShelfSpruce.class; //1303
+        list[BIRCH_SHELF] = BlockShelfBirch.class; //1304
+        list[JUNGLE_SHELF] = BlockShelfJungle.class; //1305
+        list[ACACIA_SHELF] = BlockShelfAcacia.class; //1306
+        list[DARK_OAK_SHELF] = BlockShelfDarkOak.class; //1307
+        list[MANGROVE_SHELF] = BlockShelfMangrove.class; //1308
+        list[CHERRY_SHELF] = BlockShelfCherry.class; //1309
+        list[PALE_OAK_SHELF] = BlockShelfPaleOak.class; //1310
+        list[BAMBOO_SHELF] = BlockShelfBamboo.class; //1311
+        list[CRIMSON_SHELF] = BlockShelfCrimson.class; //1312
+        list[WARPED_SHELF] = BlockShelfWarped.class; //1313
         list[EXPOSED_LIGHTNING_ROD] = BlockLightningRodExposed.class; //1314
         list[WEATHERED_LIGHTNING_ROD] = BlockLightningRodWeathered.class; //1315
         list[OXIDIZED_LIGHTNING_ROD] = BlockLightningRodOxidized.class; //1316

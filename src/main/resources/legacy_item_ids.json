@@ -1,4 +1,12 @@
 {
+  "minecraft:copper_chest": -1031,
+  "minecraft:exposed_copper_chest": -1032,
+  "minecraft:weathered_copper_chest": -1033,
+  "minecraft:oxidized_copper_chest": -1034,
+  "minecraft:waxed_copper_chest": -1035,
+  "minecraft:waxed_exposed_copper_chest": -1036,
+  "minecraft:waxed_weathered_copper_chest": -1037,
+  "minecraft:waxed_oxidized_copper_chest": -1038,
   "minecraft:cactus_flower": -1030,
   "minecraft:tall_dry_grass": -1029,
   "minecraft:short_dry_grass": -1028,
@@ -1217,10 +1225,10 @@
   "minecraft:waxed_oxidized_copper_lantern": -1090,
   "minecraft:copper_ingot": 519,
   "minecraft:raw_copper": 522,
-  "minecraft:wither_skeleton_skull": 1220,
-  "minecraft:zombie_head": 1221,
-  "minecraft:player_head": 1222,
-  "minecraft:creeper_head": 1223,
-  "minecraft:dragon_head": 1224,
-  "minecraft:piglin_head": 1225
+  "minecraft:wither_skeleton_skull": -965,
+  "minecraft:zombie_head": -966,
+  "minecraft:player_head": -967,
+  "minecraft:creeper_head": -968,
+  "minecraft:dragon_head": -969,
+  "minecraft:piglin_head": -970
 }

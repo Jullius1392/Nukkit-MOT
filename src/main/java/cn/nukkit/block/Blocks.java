@@ -797,10 +797,17 @@ public class Blocks {
         list[FIREFLY_BUSH] = BlockFireflyBush.class; //1280
         list[LEAF_LITTER] = BlockLeafLitter.class; //1281
         list[DRIED_GHAST] = BlockDriedGhast.class; //1282
-
         list[SHORT_DRY_GRASS] = BlockShortDryGrass.class; //1283
         list[TALL_DRY_GRASS] = BlockTallDryGrass.class; //1284
         list[CACTUS_FLOWER] = BlockCactusFlower.class; //1285
+        list[COPPER_CHEST] = BlockChestCopper.class; //1286
+        list[EXPOSED_COPPER_CHEST] = BlockChestCopperExposed.class; //1287
+        list[WEATHERED_COPPER_CHEST] = BlockChestCopperWeathered.class; //1288
+        list[OXIDIZED_COPPER_CHEST] = BlockChestCopperOxidized.class; //1289
+        list[WAXED_COPPER_CHEST] = BlockChestCopperWaxed.class; //1290
+        list[WAXED_EXPOSED_COPPER_CHEST] = BlockChestCopperExposedWaxed.class; //1291
+        list[WAXED_WEATHERED_COPPER_CHEST] = BlockChestCopperWeatheredWaxed.class; //1292
+        list[WAXED_OXIDIZED_COPPER_CHEST] = BlockChestCopperOxidizedWaxed.class; //1293
 
         list[OAK_SHELF] = BlockShelfOak.class; //1302
         list[SPRUCE_SHELF] = BlockShelfSpruce.class; //1303

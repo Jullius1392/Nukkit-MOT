@@ -589,6 +589,10 @@ public class Server {
      */
     public int rakPacketLimit;
     /**
+     * Login stage timeout in milliseconds.
+     */
+    public int networkLoginTimeoutMilliseconds;
+    /**
      * Temporary disable world saving to allow safe backup of leveldb worlds.
      */
     public boolean holdWorldSave;
@@ -1275,6 +1279,7 @@ public class Server {
         this.tickCounter = 0;
 
         log.info(this.baseLang.translateString("nukkit.server.startFinished", String.valueOf((double) (System.currentTimeMillis() - Nukkit.START_TIME) / 1000)));
+        this.scheduler.scheduleDelayedTask(InternalPlugin.INSTANCE, System::gc, 20);
 
         this.tickProcessor();
         this.forceShutdown();
@@ -2614,6 +2619,7 @@ public class Server {
                 it.configure(opt -> {
                     opt.configurer(new YamlSnakeYamlConfigurer());
                     opt.bindFile(configFile);
+                    opt.removeOrphans(true);
                 });
                 if (firstLoad) {
                     it.saveDefaults();
@@ -3092,8 +3098,8 @@ public class Server {
         Entity.registerEntity("Piglin", EntityPiglin.class);
         Entity.registerEntity("Zoglin", EntityZoglin.class);
         Entity.registerEntity("PiglinBrute", EntityPiglinBrute.class);
-        //Entity.registerEntity("Breeze", EntityBreeze.class);
-        //Entity.registerEntity("Bogged", EntityBogged.class);
+        Entity.registerEntity("Breeze", EntityBreeze.class);
+        Entity.registerEntity("Bogged", EntityBogged.class);
         Entity.registerEntity("Creaking", EntityCreaking.class);
         //Passive
         Entity.registerEntity("Bat", EntityBat.class);
@@ -3139,6 +3145,8 @@ public class Server {
         Entity.registerEntity("Camel", EntityCamel.class);
         Entity.registerEntity("HappyGhast", EntityHappyGhast.class);
         Entity.registerEntity("CopperGolem", EntityCopperGolem.class);
+        Entity.registerEntity("Sniffer", EntitySniffer.class);
+        Entity.registerEntity("Armadillo", EntityArmadillo.class);
         //Vehicles
         Entity.registerEntity("MinecartRideable", EntityMinecartEmpty.class);
         Entity.registerEntity("MinecartChest", EntityMinecartChest.class);
@@ -3152,6 +3160,7 @@ public class Server {
         Entity.registerEntity("AreaEffectCloud", EntityAreaEffectCloud.class);
 
         Entity.registerEntity("WindCharge", EntityWindCharge.class);
+        Entity.registerEntity("BreezeWindCharge", EntityBreezeWindCharge.class);
     }
 
     /**
@@ -3195,6 +3204,9 @@ public class Server {
         BlockEntity.registerBlockEntity(BlockEntity.TARGET, BlockEntityTarget.class);
         BlockEntity.registerBlockEntity(BlockEntity.BRUSHABLE_BLOCK, BlockEntityBrushableBlock.class);
         BlockEntity.registerBlockEntity(BlockEntity.CONDUIT, BlockEntityConduit.class);
+        BlockEntity.registerBlockEntity(BlockEntity.CHISELED_BOOKSHELF, BlockEntityChiseledBookshelf.class);
+        BlockEntity.registerBlockEntity(BlockEntity.CRAFTER, BlockEntityCrafter.class);
+        BlockEntity.registerBlockEntity(BlockEntity.SHELF, BlockEntityShelf.class);
 
         // Persistent container, not on vanilla
         BlockEntity.registerBlockEntity(BlockEntity.PERSISTENT_CONTAINER, PersistentDataContainerBlockEntity.class);
@@ -3330,6 +3342,7 @@ public class Server {
         this.networkCompressionThreshold = config.networkSettings().compressionThreshold();
         this.useSnappy = config.networkSettings().useSnappyCompression();
         this.rakPacketLimit = config.networkSettings().rakPacketLimit();
+        this.networkLoginTimeoutMilliseconds = config.networkSettings().timeoutMilliseconds();
         this.rakCookieMode = parseRakCookieMode(config.networkSettings().rakCookieMode());
         this.queryPlugins = config.networkSettings().queryPlugins();
         this.useWaterdog = config.networkSettings().useWaterdog();

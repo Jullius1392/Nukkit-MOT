@@ -21,6 +21,7 @@ import java.util.Map;
 public class RuntimeItems {
 
     private static final Map<String, Integer> legacyString2LegacyInt = new HashMap<>();
+    private static final Map<String, int[]> flattenedId2Legacy = new HashMap<>();
 
     private static RuntimeItemMapping mapping361;
     private static RuntimeItemMapping mapping419;
@@ -51,6 +52,7 @@ public class RuntimeItems {
     private static RuntimeItemMapping mapping786;
     private static RuntimeItemMapping mapping800;
     private static RuntimeItemMapping mapping818;
+    private static RuntimeItemMapping mapping819;
     private static RuntimeItemMapping mapping827;
     private static RuntimeItemMapping mapping844;
     private static RuntimeItemMapping mapping859;
@@ -61,6 +63,7 @@ public class RuntimeItems {
     private static RuntimeItemMapping mapping_netease_630;
     private static RuntimeItemMapping mapping_netease_686;
     private static RuntimeItemMapping mapping_netease_766;
+    private static RuntimeItemMapping mapping_netease_819;
 
     public static RuntimeItemMapping[] VALUES;
 
@@ -107,6 +110,19 @@ public class RuntimeItems {
             }
         }
 
+        // Register flattened identifiers (e.g., minecraft:oak_log) to legacy ID + damage
+        for (Map.Entry<String, MappingEntry> entry : mappingEntries.entrySet()) {
+            String flattenedId = entry.getKey();
+            if (flattenedId.isEmpty()) {
+                continue;
+            }
+            MappingEntry mappingEntry = entry.getValue();
+            int legacyId = legacyString2LegacyInt.getOrDefault(mappingEntry.getLegacyName(), -1);
+            if (legacyId != -1 && !flattenedId2Legacy.containsKey(flattenedId)) {
+                flattenedId2Legacy.put(flattenedId, new int[]{legacyId, mappingEntry.getDamage()});
+            }
+        }
+
         mapping361 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_12_0);
         mapping419 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_16_100);
         mapping440 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_17_0);
@@ -136,6 +152,7 @@ public class RuntimeItems {
         mapping786 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_21_70);
         mapping800 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_21_80);
         mapping818 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_21_90);
+        mapping819 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_21_93);
         mapping827 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_21_100);
         mapping844 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_21_110);
         mapping859 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_21_120);
@@ -146,6 +163,7 @@ public class RuntimeItems {
         mapping_netease_630 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_20_50_NETEASE);
         mapping_netease_686 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_21_2_NETEASE);
         mapping_netease_766 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_21_50_NETEASE);
+        mapping_netease_819 = new RuntimeItemMapping(mappingEntries, GameVersion.V1_21_93_NETEASE);
 
         VALUES = new RuntimeItemMapping[]{
                 mapping361,
@@ -177,6 +195,7 @@ public class RuntimeItems {
                 mapping786,
                 mapping800,
                 mapping818,
+                mapping819,
                 mapping827,
                 mapping844,
                 mapping859,
@@ -186,7 +205,8 @@ public class RuntimeItems {
                 // NetEase
                 mapping_netease_630,
                 mapping_netease_686,
-                mapping_netease_766
+                mapping_netease_766,
+                mapping_netease_819
         };
     }
 
@@ -212,6 +232,8 @@ public class RuntimeItems {
             return mapping844;
         } else if (protocolId >= ProtocolInfo.v1_21_100) {
             return mapping827;
+        } else if (protocolId >= ProtocolInfo.v1_21_93) {
+            return mapping819;
         } else if (protocolId >= ProtocolInfo.v1_21_90) {
             return mapping818;
         } else if (protocolId >= ProtocolInfo.v1_21_80) {
@@ -273,7 +295,9 @@ public class RuntimeItems {
     }
 
     private static RuntimeItemMapping getMappingNetEase(int protocolId) {
-        if (protocolId >= GameVersion.V1_21_50_NETEASE.getProtocol()) {
+        if (protocolId >= GameVersion.V1_21_93_NETEASE.getProtocol()) {
+            return mapping_netease_819;
+        } else if (protocolId >= GameVersion.V1_21_50_NETEASE.getProtocol()) {
             return mapping_netease_766;
         } else if (protocolId >= GameVersion.V1_21_2_NETEASE.getProtocol()) {
             return mapping_netease_686;
@@ -283,6 +307,13 @@ public class RuntimeItems {
 
     public static int getLegacyIdFromLegacyString(String identifier) {
         return legacyString2LegacyInt.getOrDefault(identifier, -1);
+    }
+
+    /**
+     * @return int[]{legacyId, damage} or null if not found
+     */
+    public static int[] getLegacyFromFlattenedId(String identifier) {
+        return flattenedId2Legacy.get(identifier);
     }
 
     /**

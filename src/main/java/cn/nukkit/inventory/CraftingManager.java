@@ -71,11 +71,13 @@ public class CraftingManager {
     private static BatchPacket packet844;
     private static BatchPacket packet859;
     private static BatchPacket packet898;
+    private static BatchPacket packet924;
     private static BatchPacket packet944;
 
     private static BatchPacket packet_netease_630;
     private static BatchPacket packet_netease_686;
     private static BatchPacket packet_netease_766;
+    private static BatchPacket packet_netease_819;
 
     private final Map<Integer, Map<UUID, ShapedRecipe>> shapedRecipes = new Int2ObjectOpenHashMap<>();
 
@@ -228,22 +230,20 @@ public class CraftingManager {
         for (Map<String, Object> recipe : (List<Map<String, Object>>) smithing.get((Object) "smithing")) {
             String recipeId = (String) recipe.get("id");
             Map<String, Object> first = ((List<Map<String, Object>>) recipe.get("output")).get(0);
-            RuntimeItemMapping.LegacyEntry legacyEntry = itemMapping.fromIdentifier((String) first.get("id"));
-            if (legacyEntry == null) {
+            Item item = Item.fromString((String) first.get("id"));
+            if (item.isNull()) {
                 log.trace("Unknown smithing output: {}", recipe);
                 continue;
             }
 
-            Item item = Item.get(legacyEntry.getLegacyId(), 0, 1);
-
             List<Item> ingredients = new ArrayList<>();
             for (Map<String, Object> ingredient : ((List<Map<String, Object>>) recipe.get("input"))) {
-                legacyEntry = itemMapping.fromIdentifier((String) ingredient.get("id"));
-                if (legacyEntry == null) {
+                Item ingredientItem = Item.fromString((String) ingredient.get("id"));
+                if (ingredientItem.isNull()) {
                     log.trace("Unknown smithing input: {}", recipe);
                     continue top;
                 }
-                ingredients.add(Item.get(legacyEntry.getLegacyId(), 0, 1));
+                ingredients.add(ingredientItem);
             }
 
             this.registerSmithingRecipe(new SmithingRecipe(recipeId, 0, ingredients, item));
@@ -290,7 +290,11 @@ public class CraftingManager {
                 }
                 int aux = (int) ingredient.getOrDefault("auxValue", 0);
                 if (aux == 32767) {
-                    aux = -1;
+                    if (legacyEntry.isHasDamage()) {
+                        aux = legacyEntry.getDamage();
+                    } else {
+                        aux = -1;
+                    }
                 } else if (aux == 0) {
                     aux = legacyEntry.getDamage();
                 }
@@ -459,7 +463,11 @@ public class CraftingManager {
                     }
                     int aux = (int) ingredientEntry.getValue().getOrDefault("auxValue", 0);
                     if (aux == 32767) {
-                        aux = -1;
+                        if (legacyEntry.isHasDamage()) {
+                            aux = legacyEntry.getDamage();
+                        } else {
+                            aux = -1;
+                        }
                     } else if (aux == 0) {
                         aux = legacyEntry.getDamage();
                     }
@@ -484,54 +492,55 @@ public class CraftingManager {
 
         Map input = (Map) recipe.get("input");
         Map output = (Map) recipe.get("output");
-        RuntimeItemMapping.LegacyEntry furnaceInputEntry = itemMapping.fromIdentifier((String) input.get("id"));
-        RuntimeItemMapping.LegacyEntry furnaceOutputEntry = itemMapping.fromIdentifier((String) output.get("id"));
 
-        if (furnaceInputEntry != null && furnaceOutputEntry != null && furnaceInputEntry.getLegacyId() != 0 && furnaceOutputEntry.getLegacyId() != 0) {
-            int inputDamage;
-            if (input.containsKey("damage")) {
-                inputDamage = ((Number) input.get("damage")).intValue();
-                if (inputDamage == 32767) {
-                    inputDamage = -1;
-                }
-            } else {
-                inputDamage = furnaceInputEntry.getDamage();
-            }
-            int outputDamage;
-            if (output.containsKey("damage")) {
-                int rawOutputDamage = ((Number) output.get("damage")).intValue();
-                outputDamage = (rawOutputDamage == 32767 || rawOutputDamage == -1) ? furnaceOutputEntry.getDamage() : rawOutputDamage;
-            } else {
-                outputDamage = furnaceOutputEntry.getDamage();
-            }
-            Item inputItem = Item.get(furnaceInputEntry.getLegacyId(), inputDamage, (Integer) input.getOrDefault("count", 1));
-            Item outputItem = Item.get(furnaceOutputEntry.getLegacyId(), outputDamage, (Integer) output.getOrDefault("count", 1));
+        Item inputItem = Item.fromString((String) input.get("id"));
+        Item outputItem = Item.fromString((String) output.get("id"));
 
-            switch (smeltingBlock) {
-                case "furnace": {
-                    FurnaceRecipe furnaceRecipe = new FurnaceRecipe(outputItem, inputItem);
-                    double xp = furnaceXpConfig.getDouble(inputItem.getNamespaceId(ProtocolInfo.CURRENT_PROTOCOL) + ":" + inputItem.getDamage(), 0d);
-                    if (xp != 0) {
-                        this.setRecipeXp(furnaceRecipe, xp);
-                    }
-                    this.registerRecipe(furnaceRecipe);
-                    break;
-                }
-                case "blast_furnace": {
-                    BlastFurnaceRecipe furnaceRecipe = new BlastFurnaceRecipe(outputItem, inputItem);
-                    double xp = furnaceXpConfig.getDouble(inputItem.getNamespaceId(ProtocolInfo.CURRENT_PROTOCOL) + ":" + inputItem.getDamage(), 0d);
-                    if (xp != 0) {
-                        this.setRecipeXp(furnaceRecipe, xp);
-                    }
-                    this.registerRecipe(furnaceRecipe);
-                    break;
-                }
-                case "campfire":
-                    this.registerRecipe(new CampfireRecipe(outputItem, inputItem));
-                    break;
-            }
-        } else {
+        if (inputItem.isNull() || outputItem.isNull()) {
             log.trace("Unknown smelting recipe: {}", recipe);
+            return;
+        }
+
+        if (input.containsKey("damage")) {
+            int inputDamage = ((Number) input.get("damage")).intValue();
+            if (inputDamage == 32767) {
+                inputDamage = -1;
+            }
+            inputItem.setDamage(inputDamage);
+        }
+
+        if (output.containsKey("damage")) {
+            int outputDamage = ((Number) output.get("damage")).intValue();
+            if (outputDamage != 32767 && outputDamage != -1) {
+                outputItem.setDamage(outputDamage);
+            }
+        }
+
+        inputItem.setCount((Integer) input.getOrDefault("count", 1));
+        outputItem.setCount((Integer) output.getOrDefault("count", 1));
+
+        switch (smeltingBlock) {
+            case "furnace": {
+                FurnaceRecipe furnaceRecipe = new FurnaceRecipe(outputItem, inputItem);
+                double xp = furnaceXpConfig.getDouble(inputItem.getNamespaceId() + ":" + inputItem.getDamage(), 0d);
+                if (xp != 0) {
+                    this.setRecipeXp(furnaceRecipe, xp);
+                }
+                this.registerRecipe(furnaceRecipe);
+                break;
+            }
+            case "blast_furnace": {
+                BlastFurnaceRecipe furnaceRecipe = new BlastFurnaceRecipe(outputItem, inputItem);
+                double xp = furnaceXpConfig.getDouble(inputItem.getNamespaceId() + ":" + inputItem.getDamage(), 0d);
+                if (xp != 0) {
+                    this.setRecipeXp(furnaceRecipe, xp);
+                }
+                this.registerRecipe(furnaceRecipe);
+                break;
+            }
+            case "campfire":
+                this.registerRecipe(new CampfireRecipe(outputItem, inputItem));
+                break;
         }
     }
 
@@ -597,7 +606,11 @@ public class CraftingManager {
                     }
                     int aux = (int) ingredient.getOrDefault("auxValue", 0);
                     if (aux == 32767) {
-                        aux = -1;
+                        if (legacyEntry.isHasDamage()) {
+                            aux = legacyEntry.getDamage();
+                        } else {
+                            aux = -1;
+                        }
                     } else if (aux == 0) {
                         aux = legacyEntry.getDamage();
                     }
@@ -683,7 +696,11 @@ public class CraftingManager {
                     }
                     int aux = (int) ingredientEntry.getValue().getOrDefault("auxValue", 0);
                     if (aux == 32767) {
-                        aux = -1;
+                        if (legacyEntry.isHasDamage()) {
+                            aux = legacyEntry.getDamage();
+                        } else {
+                            aux = -1;
+                        }
                     } else if (aux == 0) {
                         aux = legacyEntry.getDamage();
                     }
@@ -718,14 +735,14 @@ public class CraftingManager {
             if (recipe instanceof ShapedRecipe shapedRecipe) {
                 boolean isSupported = true;
                 for (Item item : shapedRecipe.getAllResults()) {
-                    if (!item.isSupportedOn(protocol)) {
+                    if (!item.isSupportedOn(gameVersion)) {
                         isSupported = false;
                         break;
                     }
                 }
                 if (isSupported) {
                     for (Item ingredient : shapedRecipe.getIngredientList()) {
-                        if (!ingredient.isSupportedOn(protocol)) {
+                        if (!ingredient.isSupportedOn(gameVersion)) {
                             isSupported = false;
                             break;
                         }
@@ -736,12 +753,12 @@ public class CraftingManager {
                 }
             } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
                 boolean isSupported = true;
-                if (!shapelessRecipe.getResult().isSupportedOn(protocol)) {
+                if (!shapelessRecipe.getResult().isSupportedOn(gameVersion)) {
                     isSupported = false;
                 }
                 if (isSupported) {
                     for (Item ingredient : shapelessRecipe.getIngredientList()) {
-                        if (!ingredient.isSupportedOn(protocol)) {
+                        if (!ingredient.isSupportedOn(gameVersion)) {
                             isSupported = false;
                             break;
                         }
@@ -754,45 +771,45 @@ public class CraftingManager {
         }
         if (protocol >= ProtocolInfo.v1_20_0_23) {
             for (SmithingRecipe recipe : this.getSmithingRecipes().values()) {
-                if (recipe.getIngredient().isSupportedOn(protocol)
-                        && recipe.getEquipment().isSupportedOn(protocol)
-                        && recipe.getTemplate().isSupportedOn(protocol)
-                        && recipe.getResult().isSupportedOn(protocol)) {
+                if (recipe.getIngredient().isSupportedOn(gameVersion)
+                        && recipe.getEquipment().isSupportedOn(gameVersion)
+                        && recipe.getTemplate().isSupportedOn(gameVersion)
+                        && recipe.getResult().isSupportedOn(gameVersion)) {
                     pk.addShapelessRecipe(recipe);
                 }
             }
         }
         for (StonecutterRecipe recipe : this.getStonecutterRecipes()) {
-            if (recipe.getIngredient().isSupportedOn(protocol) && recipe.getResult().isSupportedOn(protocol)) {
+            if (recipe.getIngredient().isSupportedOn(gameVersion) && recipe.getResult().isSupportedOn(gameVersion)) {
                 pk.addStonecutterRecipe(recipe);
             }
         }
         //TODO Fix 1.10.0 - 1.14.0 client crash
         if (protocol < ProtocolInfo.v1_10_0 || protocol > ProtocolInfo.v1_13_0) {
             for (FurnaceRecipe recipe : this.getFurnaceRecipes().values()) {
-                if (recipe.getInput().isSupportedOn(protocol) && recipe.getResult().isSupportedOn(protocol)) {
+                if (recipe.getInput().isSupportedOn(gameVersion) && recipe.getResult().isSupportedOn(gameVersion)) {
                     pk.addFurnaceRecipe(recipe);
                 }
             }
         }
         if (protocol >= ProtocolInfo.v1_13_0) {
             for (BrewingRecipe recipe : this.getBrewingRecipes().values()) {
-                if (recipe.getIngredient().isSupportedOn(protocol)
-                        && recipe.getInput().isSupportedOn(protocol)
-                        && recipe.getResult().isSupportedOn(protocol)) {
+                if (recipe.getIngredient().isSupportedOn(gameVersion)
+                        && recipe.getInput().isSupportedOn(gameVersion)
+                        && recipe.getResult().isSupportedOn(gameVersion)) {
                     pk.addBrewingRecipe(recipe);
                 }
             }
             for (ContainerRecipe recipe : this.getContainerRecipes().values()) {
-                if (recipe.getIngredient().isSupportedOn(protocol)
-                        && recipe.getInput().isSupportedOn(protocol)
-                        && recipe.getResult().isSupportedOn(protocol)) {
+                if (recipe.getIngredient().isSupportedOn(gameVersion)
+                        && recipe.getInput().isSupportedOn(gameVersion)
+                        && recipe.getResult().isSupportedOn(gameVersion)) {
                     pk.addContainerRecipe(recipe);
                 }
             }
             if (protocol >= ProtocolInfo.v1_16_0) {
                 for (MultiRecipe recipe : this.getMultiRecipes().values()) {
-                    if (recipe.isSupportedOn(protocol)) {
+                    if (recipe.isSupportedOn(gameVersion)) {
                         pk.addMultiRecipe(recipe);
                     }
                 }
@@ -805,6 +822,7 @@ public class CraftingManager {
     public void rebuildPacket() {
         //TODO Multiversion 添加新版本支持时修改这里
         packet944 = null;
+        packet924 = null;
         packet898 = null;
         packet859 = null;
         packet844 = null;
@@ -850,9 +868,11 @@ public class CraftingManager {
         packet_netease_630 = null;
         packet_netease_686 = null;
         packet_netease_766 = null;
+        packet_netease_819 = null;
 
         this.getCachedPacket(GameVersion.getLastVersion()); // 缓存当前协议版本的数据包
         this.getCachedPacket(GameVersion.V1_21_50_NETEASE);
+        this.getCachedPacket(GameVersion.V1_21_93_NETEASE);
     }
 
     @Deprecated
@@ -876,7 +896,12 @@ public class CraftingManager {
         int protocol = gameVersion.getProtocol();
 
         if (gameVersion.isNetEase()) {
-            if (protocol >= GameVersion.V1_21_50_NETEASE.getProtocol()) {
+            if (protocol >= GameVersion.V1_21_93_NETEASE.getProtocol()) {
+                if (packet_netease_819 == null) {
+                    packet_netease_819 = this.packetFor(GameVersion.V1_21_93_NETEASE);
+                }
+                return packet_netease_819;
+            } else if (protocol >= GameVersion.V1_21_50_NETEASE.getProtocol()) {
                 if (packet_netease_766 == null) {
                     packet_netease_766 = this.packetFor(GameVersion.V1_21_50_NETEASE);
                 }
@@ -899,6 +924,11 @@ public class CraftingManager {
                 packet944 = packetFor(GameVersion.V1_26_10);
             }
             return packet944;
+        } else if (protocol >= GameVersion.V1_26_0.getProtocol()) {
+            if (packet924 == null) {
+                packet924 = packetFor(GameVersion.V1_26_0);
+            }
+            return packet924;
         } else if (protocol >= GameVersion.V1_21_130_28.getProtocol()) {
             if (packet898 == null) {
                 packet898 = packetFor(GameVersion.V1_21_130);

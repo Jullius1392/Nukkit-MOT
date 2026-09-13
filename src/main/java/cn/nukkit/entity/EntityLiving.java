@@ -15,6 +15,7 @@ import cn.nukkit.event.entity.EntityDamageEvent.DamageCause;
 import cn.nukkit.inventory.PlayerInventory;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemTurtleShell;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.lang.TranslationContainer;
 import cn.nukkit.level.GameRule;
 import cn.nukkit.level.Sound;
@@ -24,9 +25,7 @@ import cn.nukkit.math.NukkitMath;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.FloatTag;
-import cn.nukkit.network.protocol.AnimatePacket;
 import cn.nukkit.network.protocol.EntityEventPacket;
-import cn.nukkit.network.protocol.LevelSoundEventPacket;
 import cn.nukkit.network.protocol.TextPacket;
 import cn.nukkit.potion.Effect;
 import cn.nukkit.utils.BlockIterator;
@@ -75,7 +74,7 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
             this.namedTag.remove("HealF");
         }
 
-        if (!this.namedTag.contains("Health") || !(this.namedTag.get("Health") instanceof FloatTag)) {
+        if (!(this.namedTag.get("Health") instanceof FloatTag)) {
             this.namedTag.putFloat("Health", this.getMaxHealth());
         }
 
@@ -129,23 +128,13 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
             return false;
         }
 
+        this.applyCriticalHitModifier(source);
+
         if (super.attack(source)) {
             if (source instanceof EntityDamageByEntityEvent) {
                 Entity damager = ((EntityDamageByEntityEvent) source).getDamager();
                 if (source instanceof EntityDamageByChildEntityEvent) {
                     damager = ((EntityDamageByChildEntityEvent) source).getChild();
-                }
-
-                // Critical hit
-                if (damager instanceof Player && !damager.onGround) {
-                    AnimatePacket animate = new AnimatePacket();
-                    animate.action = AnimatePacket.Action.CRITICAL_HIT;
-                    animate.eid = getId();
-
-                    this.getLevel().addChunkPacket(damager.getChunkX(), damager.getChunkZ(), animate);
-                    this.getLevel().addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_ATTACK_STRONG);
-
-                    source.setDamage(source.getDamage() * 1.5f);
                 }
 
                 if (damager.isOnFire() && !(damager instanceof Player)) {
@@ -216,9 +205,19 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
         this.knockBack(attacker, damage, x, z, 0.3);
     }
 
+    /** Fraction of an incoming knockback impulse resisted, from zero to one. */
+    public double getKnockBackResistance() {
+        return 0;
+    }
+
     public void knockBack(Entity attacker, double damage, double x, double z, double base) {
         double f = Math.sqrt(x * x + z * z);
         if (f <= 0) {
+            return;
+        }
+
+        double kept = 1 - Math.max(0, Math.min(1, this.getKnockBackResistance()));
+        if (kept <= 0) {
             return;
         }
 
@@ -229,9 +228,9 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
         motion.x /= 2d;
         motion.y /= 2d;
         motion.z /= 2d;
-        motion.x += x * f * base;
-        motion.y += base;
-        motion.z += z * f * base;
+        motion.x += x * f * base * kept;
+        motion.y += base * kept;
+        motion.z += z * f * base * kept;
 
         if (motion.y > base) {
             motion.y = base;
@@ -282,13 +281,20 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
     @Override
     public boolean entityBaseTick(int tickDiff) {
         boolean inWater = this.isSubmerged();
+        int respirationTick = 1;
 
         if (this instanceof Player && !this.closed) {
             Player p = (Player) this;
             boolean isBreathing = !inWater;
 
             PlayerInventory inv = p.getInventory();
-            if (isBreathing && inv != null && inv.getHelmetFast() instanceof ItemTurtleShell) {
+            Item helmet = inv == null ? null : inv.getHelmetFast();
+
+            if (helmet != null && helmet.isHelmet()) {
+                respirationTick = helmet.getEnchantmentLevel(Enchantment.ID_WATER_BREATHING) + 1;
+            }
+
+            if (isBreathing && helmet instanceof ItemTurtleShell) {
                 turtleTicks = 200;
             } else if (turtleTicks > 0) {
                 isBreathing = true;
@@ -355,7 +361,7 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
                 if (this instanceof EntitySwimming || this.isDrowned || this instanceof EntitySkeletonHorse || this instanceof EntityIronGolem || this instanceof Player player && (player.isCreative() || player.isSpectator())) {
                     this.setAirTicks(400);
                 } else {
-                    if (turtleTicks == 0) {
+                    if (turtleTicks <= 0 && level.getCurrentTick() % respirationTick == 0) {
                         hasUpdate = true;
                         int airTicks = this.getAirTicks() - tickDiff;
 
@@ -525,7 +531,7 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
     public float getMovementSpeed() {
         return this.movementSpeed;
     }
-    
+
     public int getAirTicks() {
         return this.airTicks;
     }

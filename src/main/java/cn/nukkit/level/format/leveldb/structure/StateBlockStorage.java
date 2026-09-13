@@ -5,6 +5,7 @@ import cn.nukkit.Nukkit;
 import cn.nukkit.Server;
 import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockID;
+import cn.nukkit.level.BlockPalette;
 import cn.nukkit.level.GlobalBlockPalette;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.format.anvil.util.BlockStorage;
@@ -14,6 +15,7 @@ import cn.nukkit.level.util.BitArray;
 import cn.nukkit.level.util.BitArrayVersion;
 import cn.nukkit.level.util.PalettedBlockStorage;
 import cn.nukkit.math.BlockVector3;
+import cn.nukkit.network.protocol.ProtocolInfo;
 import cn.nukkit.utils.BinaryStream;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
@@ -23,6 +25,7 @@ import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.nbt.NBTInputStream;
 import org.cloudburstmc.nbt.NBTOutputStream;
 import org.cloudburstmc.nbt.NbtMap;
+import org.cloudburstmc.nbt.NbtMapBuilder;
 import org.cloudburstmc.nbt.NbtUtils;
 
 import java.io.IOException;
@@ -33,6 +36,14 @@ import static cn.nukkit.level.format.leveldb.LevelDBConstants.SUB_CHUNK_SIZE;
 
 @Log4j2
 public class StateBlockStorage {
+
+    /**
+     * PocketMine-MP writes this private key into every block state it stores. Vanilla palettes
+     * do not contain it and states are matched as whole NBT maps, so a world saved by PMMP
+     * matches nothing at all - down to minecraft:air - and loads as solid info_update.
+     * Dropping the key here keeps everything downstream working with plain vanilla states.
+     */
+    private static final String PMMP_DATA_VERSION = "PMMPDataVersion";
 
     private static final int SECTION_SIZE = 16 * 16 * 16;
 
@@ -136,6 +147,11 @@ public class StateBlockStorage {
             for (int i = 0; i < paletteSize; ++i) {
                 try {
                     NbtMap state = (NbtMap) inputStream.readTag();
+                    if (state.containsKey(PMMP_DATA_VERSION)) {
+                        NbtMapBuilder withoutForeignKeys = state.toBuilder();
+                        withoutForeignKeys.remove(PMMP_DATA_VERSION);
+                        state = withoutForeignKeys.build();
+                    }
                     //noinspection ResultOfMethodCallIgnored
                     state.hashCode(); // cache hashCode
 
@@ -228,16 +244,33 @@ public class StateBlockStorage {
     public void writeTo(GameVersion protocol, BinaryStream stream, boolean antiXray) {
         PalettedBlockStorage palettedBlockStorage = PalettedBlockStorage.createFromBlockPalette(protocol);
 
-        for (int i = 0; i < SECTION_SIZE; i++) {
-            int fullId = get(i);
-            int id = fullId >> Block.DATA_BITS;
-            int meta = fullId & Block.DATA_MASK;
-            if (antiXray && id < Block.MAX_BLOCK_ID && Level.xrayableBlocks[id]) {
-                id = Block.STONE;
-                meta = 0;
+        // Resolve the palette and network-ID format once per section, as in anvil BlockStorage.
+        // Older protocols still need GlobalBlockPalette's legacy runtime-ID tables.
+        if (protocol.getProtocol() >= ProtocolInfo.v1_16_100) {
+            BlockPalette blockPalette = GlobalBlockPalette.getPaletteByProtocol(protocol);
+            boolean useHash = GlobalBlockPalette.shouldUseHashedBlockNetworkIds(protocol);
+            for (int i = 0; i < SECTION_SIZE; i++) {
+                int fullId = get(i);
+                int id = fullId >> Block.DATA_BITS;
+                int meta = fullId & Block.DATA_MASK;
+                if (antiXray && id < Block.MAX_BLOCK_ID && Level.xrayableBlocks[id]) {
+                    id = Block.STONE;
+                    meta = 0;
+                }
+                palettedBlockStorage.setBlock(i, useHash ? blockPalette.getHashId(id, meta)
+                                                        : blockPalette.getRuntimeId(id, meta));
             }
-            int runtimeId = GlobalBlockPalette.getOrCreateRuntimeId(protocol, id, meta);
-            palettedBlockStorage.setBlock(i, runtimeId);
+        } else {
+            for (int i = 0; i < SECTION_SIZE; i++) {
+                int fullId = get(i);
+                int id = fullId >> Block.DATA_BITS;
+                int meta = fullId & Block.DATA_MASK;
+                if (antiXray && id < Block.MAX_BLOCK_ID && Level.xrayableBlocks[id]) {
+                    id = Block.STONE;
+                    meta = 0;
+                }
+                palettedBlockStorage.setBlock(i, GlobalBlockPalette.getOrCreateRuntimeId(protocol, id, meta));
+            }
         }
 
         palettedBlockStorage.writeTo(stream);

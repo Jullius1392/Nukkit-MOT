@@ -1,5 +1,6 @@
 package cn.nukkit.entity;
 
+import cn.nukkit.AdventureSettings.Type;
 import cn.nukkit.Player;
 import cn.nukkit.Server;
 import cn.nukkit.block.Block;
@@ -23,10 +24,11 @@ import cn.nukkit.event.player.PlayerInteractEvent;
 import cn.nukkit.event.player.PlayerInteractEvent.Action;
 import cn.nukkit.event.player.PlayerTeleportEvent;
 import cn.nukkit.item.Item;
-import cn.nukkit.item.ItemTotem;
 import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.*;
 import cn.nukkit.level.format.FullChunk;
+import cn.nukkit.level.vibration.VibrationEvent;
+import cn.nukkit.level.vibration.VibrationType;
 import cn.nukkit.math.*;
 import cn.nukkit.metadata.MetadataValue;
 import cn.nukkit.metadata.Metadatable;
@@ -40,6 +42,7 @@ import cn.nukkit.potion.Effect;
 import cn.nukkit.utils.*;
 import com.google.common.collect.Iterables;
 import org.apache.commons.math3.util.FastMath;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
@@ -421,6 +424,10 @@ public abstract class Entity extends Location implements Metadatable {
      * @since v975 1.26.20
      */
     public static final int DATA_FLAG_NAMEPLATE_DEPTH_TESTED = 129;
+    /**
+     * @since v2168 1.26.40
+     */
+    public static final int DATA_FLAG_NOT_PICKABLE_FROM_INSIDE = 130;
 
     public static final double STEP_CLIP_MULTIPLIER = 0.4;
     public static final int ENTITY_COORDINATES_MAX_VALUE = 2100000000;
@@ -556,6 +563,7 @@ public abstract class Entity extends Location implements Metadatable {
 
     private volatile boolean init;
     private volatile boolean initEntity;
+    private volatile boolean published;
 
     protected volatile boolean saveWithChunk = true;
 
@@ -665,8 +673,6 @@ public abstract class Entity extends Location implements Metadatable {
         this.dataProperties.putFloat(DATA_BOUNDING_BOX_WIDTH, this.getWidth());
         this.dataProperties.putInt(DATA_HEALTH, (int) this.health);
 
-        this.scheduleUpdate();
-
         if (this instanceof Player) {
             this.sendData((Player) this);
         } else {
@@ -773,15 +779,28 @@ public abstract class Entity extends Location implements Metadatable {
         this.scale = this.namedTag.getFloat("Scale");
         this.setDataProperty(new FloatEntityData(DATA_SCALE, scale), false);
 
-        this.chunk.addEntity(this);
-        this.level.addEntity(this);
+        try {
+            this.initEntity();
+            if (this.closed) {
+                return;
+            }
 
-        this.initEntity();
+            this.chunk.addEntity(this);
+            this.level.addEntity(this);
+            this.lastUpdate = this.server.getTick();
+            this.published = true;
 
-        this.lastUpdate = this.server.getTick();
-        this.server.getPluginManager().callEvent(new EntitySpawnEvent(this));
+            this.server.getPluginManager().callEvent(new EntitySpawnEvent(this));
 
-        this.scheduleUpdate();
+            this.scheduleUpdate();
+        } catch (RuntimeException | Error e) {
+            try {
+                this.close(false);
+            } catch (RuntimeException | Error rollbackFailure) {
+                e.addSuppressed(rollbackFailure);
+            }
+            throw e;
+        }
     }
 
     /**
@@ -1069,9 +1088,14 @@ public abstract class Entity extends Location implements Metadatable {
             return;
         }
 
-        if (cause != null) {
-            Effect oldEffect = this.effects.get(effect.getId());
+        Effect oldEffect = this.effects.get(effect.getId());
 
+        if (oldEffect != null && (oldEffect.getAmplifier() > effect.getAmplifier()
+            || (oldEffect.getAmplifier() == effect.getAmplifier() && oldEffect.getDuration() >= effect.getDuration()))) {
+            return;
+        }
+
+        if (cause != null) {
             EntityPotionEffectEvent event = new EntityPotionEffectEvent(
                     this,
                     oldEffect,
@@ -1272,6 +1296,19 @@ public abstract class Entity extends Location implements Metadatable {
         return false;
     }
 
+    /**
+     * Checks whether the given entity implementation class exposes a constructor that
+     * {@link #createEntity(Class, FullChunk, cn.nukkit.nbt.tag.CompoundTag, Object...)}
+     * can invoke. Public wrapper so other registries (e.g. {@code EntityManager}) can
+     * validate custom entities the same way before registration.
+     *
+     * @param clazz the entity implementation class, possibly {@code null}
+     * @return {@code true} if a {@code (FullChunk, CompoundTag)} constructor exists
+     */
+    public static boolean hasDefaultConstructor(Class<? extends Entity> clazz) {
+        return hasMatchingConstructor(clazz, 0);
+    }
+
     public static boolean isKnown(String name) {
         if (knownEntities.containsKey(name) || EntityManager.get().getDefinition(name) != null) {
             return true;
@@ -1332,6 +1369,24 @@ public abstract class Entity extends Location implements Metadatable {
         if (clazz == null) {
             return false;
         }
+
+        if (CustomEntity.class.isAssignableFrom(clazz)) {
+            MainLogger.getLogger().error("Entity \"" + name + "\" (" + clazz.getName()
+                    + ") implements CustomEntity and must be registered via "
+                    + "EntityManager.registerDefinition(EntityDefinition), not Entity.registerEntity. "
+                    + "Registration skipped; Nukkit-MOT cannot process this entity.",
+                    new RuntimeException("CustomEntity registered via Entity.registerEntity"));
+            return false;
+        }
+
+        if (!hasDefaultConstructor(clazz)) {
+            MainLogger.getLogger().error("Registered entity \"" + name + "\" (" + clazz.getName()
+                    + ") does not expose a (FullChunk, CompoundTag) constructor. "
+                    + "Nukkit-MOT cannot process this entity.",
+                new RuntimeException("Entity without (FullChunk, CompoundTag) constructor"));
+            return false;
+        }
+
         try {
             int networkId = clazz.getField("NETWORK_ID").getInt(null);
             knownEntities.put(String.valueOf(networkId), clazz);
@@ -1365,7 +1420,7 @@ public abstract class Entity extends Location implements Metadatable {
         }
     }
 
-    private static int correctEntityIdentifiersProtocol(int protocolId) {
+    public static int correctEntityIdentifiersProtocol(int protocolId) {
         if (protocolId >= ProtocolInfo.v1_19_80) {
             return ProtocolInfo.v1_19_80;
         } else if (protocolId >= ProtocolInfo.v1_19_20) {
@@ -1600,12 +1655,16 @@ public abstract class Entity extends Location implements Metadatable {
 
     public void sendPotionEffects(Player player) {
         for (Effect effect : this.effects.values()) {
+            if (!player.canReceiveEffectPacket(effect.getId())) {
+                continue;
+            }
             MobEffectPacket pk = new MobEffectPacket();
             pk.eid = this.id;
             pk.effectId = effect.getId();
             pk.amplifier = effect.getAmplifier();
             pk.particles = effect.isVisible();
             pk.duration = effect.getDuration();
+            pk.tick = this.server.getTick();
             pk.eventId = MobEffectPacket.EVENT_ADD;
 
             player.dataPacket(pk);
@@ -1658,7 +1717,8 @@ public abstract class Entity extends Location implements Metadatable {
     }
 
     /**
-     * Check if player's hit should be critical
+     * 检查玩家的攻击是否应为暴击 / Check if player's hit should be critical
+     *
      * @param player player
      * @return can make a critical hit
      */
@@ -1666,6 +1726,52 @@ public abstract class Entity extends Location implements Metadatable {
         if (player.isOnGround() || player.riding != null || player.speed == null || player.speed.y <= 0 || player.hasEffect(Effect.BLINDNESS)) return false;
         int b = player.getLevel().getBlockIdAt(player.chunk, player.getFloorX(), player.getFloorY(), player.getFloorZ());
         return b != Block.LADDER && b != Block.VINES && !Block.isWater(b);
+    }
+
+    protected void applyCriticalHitModifier(EntityDamageEvent source) {
+        if (this instanceof EntityLiving
+                && source instanceof EntityDamageByEntityEvent damageByEntityEvent
+                && !(source instanceof EntityDamageByChildEntityEvent)
+                && !source.isApplicable(EntityDamageEvent.DamageModifier.CRITICAL)
+                && damageByEntityEvent.getDamager() instanceof Player damager
+                && canCriticalHit(damager)) {
+            // vanilla: 暴击基数取护甲前伤害(护甲同时减免暴击);legacy: 取护甲后伤害(5306387d1^ 之前行为)
+            float base = Server.getInstance().getServerConfig().gameFeatureSettings().vanillaArmorReduction()
+                    ? getDamageBeforeTargetReductions(source)
+                    : source.getFinalDamage();
+            source.setDamage(base * 0.5f, EntityDamageEvent.DamageModifier.CRITICAL);
+        }
+    }
+
+    protected static float getDamageBeforeTargetReductions(EntityDamageEvent source) {
+        return source.getFinalDamage()
+                - source.getDamage(EntityDamageEvent.DamageModifier.ARMOR)
+                - source.getDamage(EntityDamageEvent.DamageModifier.ARMOR_ENCHANTMENTS)
+                - source.getDamage(EntityDamageEvent.DamageModifier.RESISTANCE)
+                - source.getDamage(EntityDamageEvent.DamageModifier.ABSORPTION);
+    }
+
+    protected void recalculateResistanceDamage(EntityDamageEvent source) {
+        float resistance = source.getDamage(EntityDamageEvent.DamageModifier.RESISTANCE);
+        float originalBaseDamage = source.getOriginalDamage(EntityDamageEvent.DamageModifier.BASE);
+        if (resistance != 0f && originalBaseDamage != 0f) {
+            float ratio = -resistance / originalBaseDamage;
+            float preResistanceDamage = source.getFinalDamage()
+                    - resistance
+                    - source.getDamage(EntityDamageEvent.DamageModifier.ABSORPTION);
+            source.setDamage(-preResistanceDamage * ratio, EntityDamageEvent.DamageModifier.RESISTANCE);
+        }
+    }
+
+    /**
+     * 判断是否为不死图腾：按数字 id 而非 instanceof，插件直构的 plain Item 也能识别。
+     * <p>
+     * Whether the item is a totem, matched by numeric id so plugin-created plain
+     * {@code Item} stacks are recognized as well as typed {@code ItemTotem}s.
+     */
+    @ApiStatus.Internal
+    public static boolean isTotem(Item item) {
+        return item != null && item.getId() == Item.TOTEM && item.getCount() > 0;
     }
 
     public boolean attack(EntityDamageEvent source) {
@@ -1676,11 +1782,9 @@ public abstract class Entity extends Location implements Metadatable {
             return false;
         }
 
-        if (this instanceof EntityLiving && source instanceof EntityDamageByEntityEvent && !(source instanceof EntityDamageByChildEntityEvent)) {
-            Entity damager = ((EntityDamageByEntityEvent) source).getDamager();
-            if (damager instanceof Player && canCriticalHit((Player) damager)) {
-                source.setDamage(source.getFinalDamage() * 0.5f, EntityDamageEvent.DamageModifier.CRITICAL);
-            }
+        // legacy 不重算抗性(保持 ctor 预算值)
+        if (!(this instanceof EntityHumanType) && Server.getInstance().getServerConfig().gameFeatureSettings().vanillaArmorReduction()) {
+            this.recalculateResistanceDamage(source);
         }
 
         server.getPluginManager().callEvent(source);
@@ -1740,11 +1844,12 @@ public abstract class Entity extends Location implements Metadatable {
             if (source.getCause() != DamageCause.VOID && source.getCause() != DamageCause.SUICIDE) {
                 boolean totem = false;
                 boolean isOffhand = false;
-                if (p.getOffhandInventory().getItemFast(0) instanceof ItemTotem) {
+                // A deliberately held totem takes precedence over the offhand.
+                if (isTotem(p.getInventory().getItemInHandFast())) {
+                    totem = true;
+                } else if (isTotem(p.getOffhandInventory().getItemFast(0))) {
                     totem = true;
                     isOffhand = true;
-                } else if (p.getInventory().getItemInHandFast() instanceof ItemTotem) {
-                    totem = true;
                 }
                 if (totem) {
                     this.getLevel().addLevelEvent(this, LevelEventPacket.EVENT_SOUND_TOTEM);
@@ -1764,17 +1869,29 @@ public abstract class Entity extends Location implements Metadatable {
                     p.dataPacket(pk);
 
                     if (isOffhand) {
-                        p.getOffhandInventory().clear(0);
+                        p.getOffhandInventory().decreaseCount(0);
                     } else {
-                        p.getInventory().clear(p.getInventory().getHeldItemIndex());
+                        p.getInventory().decreaseCount(p.getInventory().getHeldItemIndex());
                     }
 
                     source.setCancelled(true);
                     return false;
                 }
+            } else if (isTotem(p.getOffhandInventory().getItemFast(0))) {
+                // This damage bypasses the totem (SUICIDE/VOID) and will kill the player. Hide the
+                // offhand totem before the death/damage signal reaches the client to prevent its
+                // local auto-revival creating a "ghost" state; the real item is left untouched.
+                p.getOffhandInventory().sendEmptyContentsToHolder();
             }
         }
         this.setHealth(newHealth);
+        if (source.getFinalDamage() > 0) {
+            if (source.getEntity() != null) {
+                this.level.getVibrationManager().callVibrationEvent(new VibrationEvent(source.getEntity(), new Vector3(this.x, this.y, this.z), VibrationType.ENTITY_DAMAGE));
+            } else {
+                this.level.getVibrationManager().callVibrationEvent(new VibrationEvent(this, new Vector3(this.x, this.y, this.z), VibrationType.ENTITY_DAMAGE));
+            }
+        }
         return true;
     }
 
@@ -2358,7 +2475,7 @@ public abstract class Entity extends Location implements Metadatable {
     }
 
     public final void scheduleUpdate() {
-        if (!this.closed && !this.level.isBeingConverted) {
+        if (this.published && !this.closed && !this.level.isBeingConverted) {
             this.level.updateEntities.put(this.id, this);
         }
     }
@@ -2381,7 +2498,7 @@ public abstract class Entity extends Location implements Metadatable {
     }
 
     public void setAbsorption(float absorption) {
-        if (absorption != this.absorption) {
+        if (absorption != this.absorption || (this instanceof Player player && player.protocol >= ProtocolInfo.v1_21_60)) {
             this.absorption = absorption;
             if (this instanceof Player player) player.setAttribute(Attribute.getAttribute(Attribute.ABSORPTION).setValue(absorption));
         }
@@ -2451,6 +2568,13 @@ public abstract class Entity extends Location implements Metadatable {
                 Block down = this.level.getBlock(this.chunk, this.getFloorX(), this.getFloorY() - 1, this.getFloorZ(), 0, true);
                 int floor = down.getId();
 
+                EntityFallEvent event = new EntityFallEvent(this, down, fallDistance);
+                this.server.getPluginManager().callEvent(event);
+                if (event.isCancelled()) {
+                    return;
+                }
+                fallDistance = event.getFallDistance();
+
                 if (!this.noFallDamage) {
                     float damage = (float) Math.floor(fallDistance - 3 - (this.hasEffect(Effect.JUMP) ? this.getEffect(Effect.JUMP).getAmplifier() + 1 : 0));
 
@@ -2478,11 +2602,14 @@ public abstract class Entity extends Location implements Metadatable {
                     }
 
                     if (damage > 0 && (!(this instanceof Player) || level.getGameRules().getBoolean(GameRule.FALL_DAMAGE))) {
+                        if (!this.isSneaking()) {
+                            this.level.getVibrationManager().callVibrationEvent(new VibrationEvent(this, new Vector3(this.x, this.y, this.z), VibrationType.HIT_GROUND));
+                        }
                         this.attack(new EntityDamageEvent(this, DamageCause.FALL, damage));
                     }
                 }
 
-                if (down.getId() == BlockID.FARMLAND) {
+                if (down.getId() == BlockID.FARMLAND && canTrampleFarmland()) {
                     Event ev;
 
                     if (this instanceof Player player) {
@@ -2499,6 +2626,13 @@ public abstract class Entity extends Location implements Metadatable {
                 }
             }
         }
+    }
+
+    protected boolean canTrampleFarmland() {
+        if (this instanceof Player player) {
+            return !player.getAdventureSettings().get(Type.FLYING);
+        }
+        return true;
     }
 
     public void moveFlying(float strafe, float forward, float friction) {
@@ -2604,7 +2738,7 @@ public abstract class Entity extends Location implements Metadatable {
         this.level.addEntity(this);
         this.chunk = null;
 
-        if (this instanceof Player) {
+        if (this instanceof Player player && player.isOnline()) {
             this.afterSwitchLevel();
         }
         return true;
@@ -2987,7 +3121,7 @@ public abstract class Entity extends Location implements Metadatable {
                 this.z = pos.z;
 
                 // Dimension change
-                if (this instanceof Player player && newLevel.getDimension() != oldLevel.getDimension()) {
+                if (this instanceof Player player && player.isOnline() && newLevel.getDimension() != oldLevel.getDimension()) {
                     player.setDimension(newLevel.getDimension());
                 }
 
@@ -3143,31 +3277,42 @@ public abstract class Entity extends Location implements Metadatable {
     }
 
     public void close() {
+        this.close(true);
+    }
+
+    private void close(boolean callDespawnEvent) {
         if (!this.closed) {
             this.closed = true;
-            this.server.getPluginManager().callEvent(new EntityDespawnEvent(this));
-            this.despawnFromAll();
-
-            this.collisionHelper = null;
-            this.blocksAround = null;
-            this.collisionBlocks = null;
-
-            this.removeAllEffects(EntityPotionEffectEvent.Cause.DEATH);
-            this.passengers.clear();
-
-            if (this.intProperties != null) {
-                this.intProperties.clear();
+            if (callDespawnEvent) {
+                this.server.getPluginManager().callEvent(new EntityDespawnEvent(this));
             }
-            if (this.floatProperties != null) {
-                this.floatProperties.clear();
-            }
+            this.published = false;
+            try {
+                this.despawnFromAll();
 
-            if (this.chunk != null) {
-                this.chunk.removeEntity(this);
-            }
+                this.collisionHelper = null;
+                this.blocksAround = null;
+                this.collisionBlocks = null;
 
-            if (this.level != null) {
-                this.level.removeEntity(this);
+                this.removeAllEffects(callDespawnEvent ? EntityPotionEffectEvent.Cause.DEATH : null);
+                this.passengers.clear();
+
+                if (this.intProperties != null) {
+                    this.intProperties.clear();
+                }
+                if (this.floatProperties != null) {
+                    this.floatProperties.clear();
+                }
+            } finally {
+                try {
+                    if (this.chunk != null) {
+                        this.chunk.removeEntity(this);
+                    }
+                } finally {
+                    if (this.level != null) {
+                        this.level.removeEntity(this);
+                    }
+                }
             }
         }
     }
@@ -3548,7 +3693,7 @@ public abstract class Entity extends Location implements Metadatable {
         List<EntityProperty> entityPropertyList = EntityProperty.getEntityProperty(this.getIdentifier().toString());
 
         for (EntityProperty property : entityPropertyList) {
-            if(Objects.equals(property.getIdentifier(), identifier) && property instanceof EnumEntityProperty enumEntityProperty) {
+            if(property instanceof EnumEntityProperty enumEntityProperty && Objects.equals(property.getIdentifier(), identifier)) {
                 int index = enumEntityProperty.findIndex(value);
 
                 if(index >= 0) {
@@ -3565,11 +3710,16 @@ public abstract class Entity extends Location implements Metadatable {
         List<EntityProperty> entityPropertyList = EntityProperty.getEntityProperty(this.getIdentifier().toString());
 
         for (EntityProperty property : entityPropertyList) {
-            if (!identifier.equals(property.getIdentifier()) ||
-                    !(property instanceof EnumEntityProperty enumProperty)) {
+            if (!(property instanceof EnumEntityProperty enumProperty) ||
+                    !identifier.equals(property.getIdentifier())) {
                 continue;
             }
-            return enumProperty.getEnums()[intProperties.get(identifier)];
+            String[] values = enumProperty.getEnums();
+            Integer index = intProperties.get(identifier);
+            if (index == null || index < 0 || index >= values.length) {
+                return enumProperty.getDefaultValue();
+            }
+            return values[index];
         }
         return null;
     }

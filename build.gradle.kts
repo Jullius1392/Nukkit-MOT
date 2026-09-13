@@ -1,6 +1,5 @@
 import com.github.jengelman.gradle.plugins.shadow.transformers.Log4j2PluginsCacheFileTransformer
-
-@Suppress("DSL_SCOPE_VIOLATION") // https://youtrack.jetbrains.com/issue/IDEA-262280
+import org.gradle.api.tasks.bundling.AbstractArchiveTask
 
 plugins {
     id("java-library")
@@ -46,7 +45,14 @@ val mockitoAgent by configurations.creating {
 }
 
 dependencies {
-    api(libs.raknet)
+    api(libs.raknet) {
+        exclude("io.netty", "netty-common")
+        exclude("io.netty", "netty-codec-base")
+        exclude("io.netty", "netty-buffer")
+        exclude("io.netty", "netty-transport")
+        exclude("io.netty", "netty-transport-native-unix-common")
+        exclude("io.netty", "netty-codec-haproxy")
+    }
     api(libs.netty.epoll)
     api(libs.netty.codec.haproxy)
     api(libs.nukkitx.natives)
@@ -76,6 +82,7 @@ dependencies {
 
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
+    annotationProcessor(libs.log4j.core)
 
     compileOnly(libs.jsr305)
 
@@ -101,7 +108,7 @@ dependencies {
         exclude("io.netty", "netty-buffer")
     }
     testImplementation(libs.cloudburst.math)
-    testImplementation(libs.allay.protocol.extension)
+    testImplementation(libs.netease.protocol.extension)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.bundles.mockito)
@@ -114,8 +121,15 @@ application {
     mainClass.set("cn.nukkit.Nukkit")
 }
 
+// Reproducible archives (mirrors the Maven setup in pom.xml)
+tasks.withType<AbstractArchiveTask>().configureEach {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+}
+
 gitProperties {
-    dateFormat = "dd.MM.yyyy '@' HH:mm:ss z"
+    // Only the fields Nukkit.GIT_INFO reads; the rest vary per build environment
+    keys = listOf("git.branch", "git.commit.id.abbrev")
     failOnNoGitDirectory = false
 }
 
@@ -141,6 +155,12 @@ publishing {
 tasks {
     compileJava {
         options.encoding = "UTF-8"
+        options.compilerArgs.addAll(
+            listOf(
+                "-Alog4j.graalvm.groupId=cn.nukkit",
+                "-Alog4j.graalvm.artifactId=Nukkit"
+            )
+        )
     }
 
     test {
@@ -152,12 +172,37 @@ tasks {
         )
     }
 
+    // Minify all .json resources in the build output to shrink the JAR.
+    // Source files in src/main/resources stay readable; only the copied artifacts are minified.
+    // Idempotent: already-minified files are unchanged on a second pass.
+    processResources {
+        doLast {
+            val minifyGson = com.google.gson.GsonBuilder().disableHtmlEscaping().create()
+            @Suppress("DEPRECATION")
+            val outDir = destinationDir
+            outDir.walkTopDown()
+                .filter { it.isFile && it.extension.equals("json", ignoreCase = true) }
+                .forEach { file ->
+                    val parsed = com.google.gson.JsonParser.parseReader(file.reader(Charsets.UTF_8))
+                    file.writeText(minifyGson.toJson(parsed), Charsets.UTF_8)
+                    logger.debug("Minified ${file.name}")
+                }
+        }
+    }
+
     jar {
         archiveClassifier.set("dev")
     }
 
     shadowJar {
         manifest.attributes["Multi-Release"] = "true"
+
+        // Shadow 9 defaults to EXCLUDE, which feeds only one source of the duplicated
+        // Log4j2Plugins.dat to the transformer below. The project's own (near-empty) cache
+        // then wins and log4j-core's built-in plugins are dropped, breaking log4j2.xml
+        // loading at runtime (console falls back to StatusLogger with literal § codes).
+        // INCLUDE restores the shadow 8 behavior; see GradleUp/shadow#1733.
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
 
         transform(Log4j2PluginsCacheFileTransformer())
 
@@ -166,6 +211,19 @@ tasks {
         archiveClassifier.set("")
 
         exclude("javax/annotation/**")
+
+        // Duplicated dependency metadata (LICENSE, netty versions, ...): INCLUDE keeps
+        // same-named entries in unstable order, so drop them for reproducibility
+        exclude(
+            "META-INF/LICENSE*",
+            "META-INF/NOTICE*",
+            "META-INF/DEPENDENCIES*",
+            "META-INF/AL2.0",
+            "META-INF/LGPL2.1",
+            "META-INF/proguard/**",
+            "META-INF/io.netty.versions.properties",
+            "META-INF/maven/**",
+        )
     }
 
     runShadow {
